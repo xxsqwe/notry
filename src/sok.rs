@@ -12,11 +12,17 @@ use rand_core::CryptoRng;
 use rand_core::RngCore;
 use rand::rngs::OsRng;
 
+use subtle::Choice;
+
 use zeroize::Zeroize;
 //use sha2::{Digest, Sha256};
-use core::ops::{Add, Sub};
+//use core::ops::{Add, Sub};
 
-
+pub const EDWARDS_BASE2: CompressedEdwardsY=
+   CompressedEdwardsY( [0x31,0x1d,0xdd,0xd2,0x2e,0xe8,0x8d,0xd6,
+                        0x60,0x06,0x6d,0xd6,0x67,0x7e,0xec,0xc4,
+                        0x44,0x48,0x87,0x73,0x3b,0xb7,0x74,0x49,
+                        0x99,0x93,0x3b,0xb0,0x08,0x8b,0xb0,0x0a]);
 
 
 
@@ -31,9 +37,6 @@ impl From<&[u8]> for PublicKey{
         PublicKey(CompressedEdwardsY::from_slice(bytes).decompress().unwrap())
 
     }
-}
-impl PublicKey {
-
 }
 
 
@@ -92,7 +95,7 @@ impl From<[u8; 32]> for StaticSecret {
 impl<'a> From<&'a StaticSecret> for PublicKey {
     /// Given an x25519 [`StaticSecret`] key, compute its corresponding [`PublicKey`].
     fn from(secret: &'a StaticSecret) -> PublicKey {
-        PublicKey((&ED25519_BASEPOINT_TABLE * &secret.0))
+        PublicKey(&ED25519_BASEPOINT_TABLE * &secret.0)
     }
 }
 
@@ -118,27 +121,25 @@ fn clamp_scalar(mut scalar: [u8; 32]) -> Scalar {
 /// counterparty's [`PublicKey`].
 #[derive(Zeroize)]
 #[zeroize(drop)]
-pub struct SharedSecret(pub(crate) MontgomeryPoint);
+pub struct SharedSecret(pub(crate) EdwardsPoint);
 
 impl SharedSecret {
     /// Convert this shared secret to a byte array.
     #[inline]
     pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.to_bytes()
+        self.0.compress().to_bytes()
     }
-
-    /// View this shared secret key as a byte array.
-    #[inline]
-    pub fn as_bytes(&self) -> &[u8; 32] {
-        self.0.as_bytes()
-    }    #[must_use]
-    pub fn was_contributory(&self) -> bool {
-        !self.0.is_identity()
-    }
+  
+    
 }
-
-pub fn sok(){
-
+/// SoK, which take two group points as a input,
+/// produces a compund proof based on schnorr signature.
+/// Let Choice 0 for proving left part, where 1 as the right part, of the formula
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey, AB:PublicKey, first_secret: StaticSecret, second_secret: StaticSecret, b:Vec<Choice> ){
+    // dlog{_h}A or dlog{_h}B
+    let left = 1;
 }
 
 /// a simulator is need for Sigma-OR proof, which is a fundamental conponet in our Sok(Signature of Knowledge) protocol. 
@@ -146,14 +147,33 @@ pub fn sok(){
 /// 
 /// Following the tradition, we let t be the commit in a sigma protocol, c be the challenge value, and z be the response.
 /// convert a DH style protocol into an ECC one: t=zG-acG, therefore the test g^z = t*A^c is zG=zG-acG+cA=zG-ac
-pub fn simulator(pubc: PublicKey) -> (StaticSecret,StaticSecret,PublicKey) {
+/// Original base point of Edwards Curve is y=-5/4, According to another basepoint base2:x=16 
+/// in the Montgomery form, we set base2 of Edwards according to the transform. (Transformations)Birational maps between the two are:
+/// (u, v) = ((1+y)/(1-y), sqrt(-486664)*u/x)
+/// (x, y) = (sqrt(-486664)*u/v, (u-1)/(u+1))
+/// return z c t as the transcript of a schnorr proof
+pub fn simulator(pubc: PublicKey,diff_base:bool) -> (StaticSecret,StaticSecret,PublicKey) {
     let z = StaticSecret::new(&mut OsRng);
     let c = StaticSecret::new(&mut OsRng);
-    let t = PublicKey(PublicKey::from(&z).0-c.0*pubc.0);//pubc = aG
-
-    println!("scalar:{:?}",PublicKey::from(&z).0-c.0*pubc.0);
-    println!("zG={:?}",PublicKey::from(&z));
-    println!{"z={:?}\nc={:?}\nt={:?}",z.to_bytes(),c.to_bytes(),t};
+    let t= 
+        if diff_base{
+            PublicKey(&z.0*&(EDWARDS_BASE2.decompress().unwrap())-c.0*pubc.0)
+        }
+        
+        else{
+            PublicKey(PublicKey::from(&z).0-c.0*pubc.0)//pubc = aG
+        };
+    //println!("zG={:?}",t);
+    //println!{"z={:?}\nc={:?}\nt={:?}",z.to_bytes(),c.to_bytes(),t};
     (z,c,t)
 }
+#[test]
+fn test_simulator() {
+    let alice_secret = StaticSecret::new(&mut OsRng);
+    let alice_public = PublicKey::from(&alice_secret);
+    println!("Alice Public={:?}", alice_public);
+    let s=simulator(alice_public,true);
+    assert_eq!(&s.0.0*&(EDWARDS_BASE2.decompress().unwrap()),s.2.0+alice_public.0*s.1.0);
+}
+
 
