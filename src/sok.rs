@@ -3,7 +3,7 @@
 extern crate hkdf;
 extern crate sha2;
 use sha2::{Sha256,Digest};
-
+use hex_literal::Hex;
 use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE};
 use curve25519_dalek::montgomery::MontgomeryPoint;
 use curve25519_dalek::edwards::{EdwardsPoint,CompressedEdwardsY};
@@ -146,21 +146,27 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey, AB:PublicKey, first_secret:
     ///  First P runs the simlator with Y_d to oatains (t_d,c_d,z_d). P runs the P_j(x,y_j) to get t_j, sends (t_0,t_1)
     /// After that P recevies the random challenge c from the V and sets c_j= c_d ⊕ c 
     /// P runs P_j(x, y_j) to get reponse z_j, sends (t_0,z_0,z_1) to V
-    /// V computes c_1 = c + c_0, 
+    /// V computes c_1 = c + c_0, then checks that (c_0,t_0,z_0) and (c_1,t_1,z_1) are both valid transcripts for statement y_0 and y_1
     if b[0].unwrap_u8()==0u8 { //prove dlog_{h}A
         let (c_d,z_d,t_d)=simulator(B, false);
         let t_j= StaticSecret::new(&mut OsRng);
         
         let mut hasher = Sha256::new();
-
+        
         hasher.update(A.0.compress().to_bytes());
         let result = hasher.finalize();
+        
+        
+
+    }
+    else{
+
     }
     let left = 1;
 
 }
-fn hash(){
-
+fn hash( words:Scalar){
+    
 }
 /// a simulator is need for Sigma-OR proof, which is a fundamental conponet in our Sok(Signature of Knowledge) protocol. 
 /// let pubc be the A, B, AB, and pk

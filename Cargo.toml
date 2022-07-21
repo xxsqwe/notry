@@ -16,6 +16,7 @@ our_serde = { package = "serde", version = "1", default-features = false, option
 zeroize = { version = "=1.3", default-features = false, features = ["zeroize_derive"] }
 sha2 = "0.10"
 subtle = { version = "^2.2.1", default-features = false }
+hex-literal = "0.2.2"
 
 [dependencies.x25519-dalek]
 version = "1"
