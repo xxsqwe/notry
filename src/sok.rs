@@ -3,7 +3,8 @@
 extern crate hkdf;
 extern crate sha2;
 use sha2::{Sha256,Digest};
-use hex_literal::Hex;
+
+use hex_literal::hex;
 use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE};
 use curve25519_dalek::montgomery::MontgomeryPoint;
 use curve25519_dalek::edwards::{EdwardsPoint,CompressedEdwardsY};
@@ -137,24 +138,24 @@ impl SharedSecret {
 /// SoK, which take two group points as a input,
 /// produces a compund proof based on schnorr signature.
 /// Let Choice 0 for proving left part, where 1 as the right part, of the formula
+/// dlog{_h}A or dlog{_h}B proof:
+/// (j\in {0,1} indicating which statement to prove, x\in {a,b} is the witness) for one of y_j \in {A,B}. d = 1-j
+/// First P runs the simlator with Y_d to oatains (t_d,c_d,z_d). P runs the P_j(x,y_j) to get t_j, sends (t_0,t_1)
+/// After that P recevies the random challenge c from the V and sets c_j= c_d ⊕ c 
+/// P runs P_j(x, y_j) to get reponse z_j, sends (t_0,z_0,z_1) to V
+/// V computes c_1 = c + c_0, then checks that (c_0,t_0,z_0) and (c_1,t_1,z_1) are both valid transcripts for statement y_0 and y_1
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 #[allow(unused_variables)]
 pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey, AB:PublicKey, first_secret: StaticSecret, second_secret: StaticSecret, b:Vec<Choice> ){
-    /// dlog{_h}A or dlog{_h}B proof:
-    /// (j\in {0,1} indicating which statement to prove, x\in {a,b} is the witness) for one of y_j \in {A,B}. d = 1-j
-    ///  First P runs the simlator with Y_d to oatains (t_d,c_d,z_d). P runs the P_j(x,y_j) to get t_j, sends (t_0,t_1)
-    /// After that P recevies the random challenge c from the V and sets c_j= c_d ⊕ c 
-    /// P runs P_j(x, y_j) to get reponse z_j, sends (t_0,z_0,z_1) to V
-    /// V computes c_1 = c + c_0, then checks that (c_0,t_0,z_0) and (c_1,t_1,z_1) are both valid transcripts for statement y_0 and y_1
+    
     if b[0].unwrap_u8()==0u8 { //prove dlog_{h}A
         let (c_d,z_d,t_d)=simulator(B, false);
         let t_j= StaticSecret::new(&mut OsRng);
-        
-        let mut hasher = Sha256::new();
-        
-        hasher.update(A.0.compress().to_bytes());
-        let result = hasher.finalize();
+        let message: String= String::from("sadw");
+    
+        println!("hash digest is {:?}",hash(message));
+       
         
         
 
@@ -165,8 +166,15 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey, AB:PublicKey, first_secret:
     let left = 1;
 
 }
-fn hash( words:Scalar){
-    
+fn hash( msg: String ) -> [u8;32] {
+
+    let mut hasher = Sha256::new();
+    hasher.update(msg);
+    let res = hasher.finalize();
+    println!("result:{:X}",res);
+    let mut output = [0u8; 32];
+    output.copy_from_slice(res.as_slice());
+    output
 }
 /// a simulator is need for Sigma-OR proof, which is a fundamental conponet in our Sok(Signature of Knowledge) protocol. 
 /// let pubc be the A, B, AB, and pk
@@ -200,6 +208,13 @@ fn test_simulator() {
     println!("Alice Public={:?}", alice_public);
     let s=simulator(alice_public,true);
     assert_eq!(&s.0.0*&(EDWARDS_BASE2.decompress().unwrap()),s.2.0+alice_public.0*s.1.0);
+}
+
+#[test]
+fn test_hash(){
+    let message= String::from("sadw");
+    println!("SHA256 of the messsage is {:?}",hash(message));
+    assert_eq!(1,2)
 }
 
 
