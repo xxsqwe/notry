@@ -5,7 +5,7 @@ extern crate sha2;
 use sha2::{Sha256,Digest};
 
 use hex_literal::hex;
-use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE};
+use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED};
 use curve25519_dalek::montgomery::MontgomeryPoint;
 use curve25519_dalek::edwards::{EdwardsPoint,CompressedEdwardsY};
 use curve25519_dalek::scalar::Scalar;
@@ -41,7 +41,11 @@ impl From<&[u8]> for PublicKey{
 
     }
 }
-
+impl PublicKey{
+    pub fn to_bytes(&self) -> [u8;32]{
+        self.0.compress().to_bytes()
+    }
+}
 
 /// A Diffie-Hellman secret key that can be used to compute multiple [`SharedSecret`]s.
 ///
@@ -147,33 +151,55 @@ impl SharedSecret {
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 #[allow(unused_variables)]
-pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey, AB:PublicKey, first_secret: StaticSecret, second_secret: StaticSecret, b:Vec<Choice> ){
+pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey, AB:PublicKey, secret: StaticSecret,  j:Choice )->(PublicKey,PublicKey,&[u8],Scalar,Scalar){
     
-    if b[0].unwrap_u8()==0u8 { //prove dlog_{h}A
+    if j.unwrap_u8()==0u8 { //prove dlog_{h}A, send (t_0,t_1) and (c_0,z_0,z_1) to Verifier
         let (c_d,z_d,t_d)=simulator(B, false);
-        let t_j= StaticSecret::new(&mut OsRng);
-        let message: String= String::from("sadw");
+        let t_j=StaticSecret::new(&mut OsRng);
+        let u_j = PublicKey::from(&t_j);
+        let message: String= String::from("dlog_{h}A or dlog_{h}B");
+        let FS = hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
+                                            .chain(&A.to_bytes())
+                                            .chain(&u_j.to_bytes())
+                                            .chain(message.as_bytes())
+                                            .cloned()               //H(g,pubkey,u,m)
+                                            .collect::<Vec<u8>>());// Array Catenation
+        let c_j: Vec<u8> = FS.iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect(); // xor corresponding bytes in two Vectors
+        let z_j = t_j.0+Scalar::from_bits( c_j.as_slice().try_into().unwrap())*secret.0; // trick. from Vec to array
     
-        println!("hash digest is {:?}",hash(message));
+        (u_j,t_d,c_j.as_slice(),z_j,z_d.0)
+
        
         
         
 
     }
-    else{
-
+    else{   //where j=1, d=0
+        let (c_d,z_d,t_d)=simulator(A, false);
+        let t_j=StaticSecret::new(&mut OsRng);
+        let u_j = PublicKey::from(&t_j);
+        let message: String= String::from("dlog_{h}A or dlog_{h}B");
+        let FS = hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
+                                            .chain(&B.to_bytes())
+                                            .chain(&u_j.to_bytes())
+                                            .chain(message.as_bytes())
+                                            .cloned()               //H(g,pubkey,u,m)
+                                            .collect::<Vec<u8>>());// Array Catenation
+        let c_j: Vec<u8> = FS.iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect(); // xor corresponding bytes in two Vectors
+        let z_j = t_j.0+Scalar::from_bits( c_j.as_slice().try_into().unwrap())*secret.0; // trick. from Vec to array
+    
+        (t_d,u_j,&c_d.to_bytes(),z_d.0,z_j)
     }
-    let left = 1;
-
+    
 }
-fn hash( msg: String ) -> [u8;32] {
+fn hash( msg: &[u8] ) -> [u8;32] {
 
     let mut hasher = Sha256::new();
     hasher.update(msg);
     let res = hasher.finalize();
-    println!("result:{:X}",res);
     let mut output = [0u8; 32];
     output.copy_from_slice(res.as_slice());
+    println!("hash:{:?}",output);
     output
 }
 /// a simulator is need for Sigma-OR proof, which is a fundamental conponet in our Sok(Signature of Knowledge) protocol. 
@@ -209,12 +235,26 @@ fn test_simulator() {
     let s=simulator(alice_public,true);
     assert_eq!(&s.0.0*&(EDWARDS_BASE2.decompress().unwrap()),s.2.0+alice_public.0*s.1.0);
 }
-
 #[test]
 fn test_hash(){
-    let message= String::from("sadw");
-    println!("SHA256 of the messsage is {:?}",hash(message));
+    let message= String::from("dlog_{h}A or dlog_{h}B");
+    let m2=String::from("holy shit");
+    let alice_secret = StaticSecret::new(&mut OsRng);
+    let alice_public = PublicKey::from(&alice_secret);
+    println!("alice secret is {:?}", alice_secret.to_bytes());
+    println!("linked array:{:?}",&alice_public.to_bytes().iter().chain(message.as_bytes()).chain(m2.as_bytes()).cloned().collect::<Vec<u8>>());
+    let FS=hash(&alice_public.to_bytes().iter().chain(message.as_bytes()).cloned().collect::<Vec<u8>>());
+    
+    println!("hash of msg:{:?}",FS);
+    println!("xored:{:?}",      FS.iter().zip(alice_secret.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>());
+
+
     assert_eq!(1,2)
+}
+
+#[test]
+fn test_sok(){
+
 }
 
 
