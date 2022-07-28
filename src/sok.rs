@@ -139,6 +139,37 @@ impl SharedSecret {
   
     
 }
+#[derive(Zeroize)]
+pub struct sigma_or{
+    t_0: PublicKey,
+    c_0: StaticSecret,
+    z_0: StaticSecret,
+    t_1: PublicKey,
+    c_1: StaticSecret,
+    z_1: StaticSecret,
+    left: PublicKey,
+    right: PublicKey,
+}
+impl sigma_or{
+    pub fn verify(&self,diff_base:bool) -> bool{
+        let first = 
+            if diff_base{
+                &self.z_0.0*&EDWARDS_BASE2.decompress().unwrap() == self.t_0.0+self.left.0*self.c_0.0
+        }
+            else{
+                &self.z_0.0*&ED25519_BASEPOINT_TABLE == self.t_0.0+self.left.0*self.c_0.0
+            
+        };
+        let second = 
+            if diff_base{
+                &self.z_1.0*&EDWARDS_BASE2.decompress().unwrap() == self.t_1.0+self.right.0*self.c_1.0
+            }
+            else{
+                &self.z_1.0*&ED25519_BASEPOINT_TABLE == self.t_1.0+self.right.0*self.c_1.0
+            };
+        first && second
+    }
+}
 /// SoK, which take two group points as a input,
 /// produces a compund proof based on schnorr signature.
 /// Let Choice 0 for proving left part, where 1 as the right part, of the formula
@@ -151,23 +182,23 @@ impl SharedSecret {
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 #[allow(unused_variables)]
-pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey, AB:PublicKey, secret: StaticSecret,  j:Choice )->(PublicKey,PublicKey,&[u8],Scalar,Scalar){
-    
-    if j.unwrap_u8()==0u8 { //prove dlog_{h}A, send (t_0,t_1) and (c_0,z_0,z_1) to Verifier
+pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: StaticSecret,  j:Choice)->Vec<(PublicKey,PublicKey,Scalar,Scalar,Scalar)>{
+    let first_part=
+    if j.unwrap_u8()==0u8 { //prove dlog_{h}A, send (t_0,t_1) and (c_0,z_0,z_1) to Verifier. j=0,d=1
         let (c_d,z_d,t_d)=simulator(B, false);
         let t_j=StaticSecret::new(&mut OsRng);
         let u_j = PublicKey::from(&t_j);
         let message: String= String::from("dlog_{h}A or dlog_{h}B");
-        let FS = hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
+        let FS = Scalar::from_bits( hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
                                             .chain(&A.to_bytes())
                                             .chain(&u_j.to_bytes())
                                             .chain(message.as_bytes())
                                             .cloned()               //H(g,pubkey,u,m)
-                                            .collect::<Vec<u8>>());// Array Catenation
-        let c_j: Vec<u8> = FS.iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect(); // xor corresponding bytes in two Vectors
-        let z_j = t_j.0+Scalar::from_bits( c_j.as_slice().try_into().unwrap())*secret.0; // trick. from Vec to array
+                                            .collect::<Vec<u8>>()));// Array Catenation
+        let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors
+        let z_j = t_j.0+c_j*secret.0; // trick. from Vec to array
     
-        (u_j,t_d,c_j.as_slice(),z_j,z_d.0)
+        (u_j,t_d,c_j,z_j,z_d.0)
 
        
         
@@ -176,21 +207,73 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey, AB:PublicKey, secret: Stati
     }
     else{   //where j=1, d=0
         let (c_d,z_d,t_d)=simulator(A, false);
-        let t_j=StaticSecret::new(&mut OsRng);
+        let t_j = StaticSecret::new(&mut OsRng);
         let u_j = PublicKey::from(&t_j);
         let message: String= String::from("dlog_{h}A or dlog_{h}B");
-        let FS = hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
+        let FS = Scalar::from_bits(hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
                                             .chain(&B.to_bytes())
                                             .chain(&u_j.to_bytes())
                                             .chain(message.as_bytes())
                                             .cloned()               //H(g,pubkey,u,m)
-                                            .collect::<Vec<u8>>());// Array Catenation
-        let c_j: Vec<u8> = FS.iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect(); // xor corresponding bytes in two Vectors
-        let z_j = t_j.0+Scalar::from_bits( c_j.as_slice().try_into().unwrap())*secret.0; // trick. from Vec to array
+                                            .collect::<Vec<u8>>()));// Array Catenation
+        let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors, trick. from Vec to array
+        let z_j = t_j.0+c_j*secret.0; //
     
-        (t_d,u_j,&c_d.to_bytes(),z_d.0,z_j)
-    }
+        (t_d,u_j,c_d.0,z_d.0,z_j)
+    };
+    let second_part=
+        {
+            let (c_d,z_d,t_d)=simulator(PublicKey(A.0+B.0), true);
+            let t_j = StaticSecret::new(&mut OsRng);
+            let u_j = PublicKey::from(&t_j);
+            let message: String= String::from("dlog_{g}pk or dlog_{g}AB");
+
+            let FS = Scalar::from_bits(hash(&EDWARDS_BASE2.to_bytes().iter()
+                                            .chain(&pk.to_bytes())
+                                            .chain(&u_j.to_bytes())
+                                            .chain(message.as_bytes())
+                                            .cloned()               //H(g,pubkey,u,m)
+                                            .collect::<Vec<u8>>()));
+            let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors
+            let z_j = t_j.0+ c_j*sk.0;
+            (u_j,t_d,c_j,z_j,z_d.0)
+
+
+        };
+    vec![first_part,second_part]
     
+}
+pub fn sok_verify(mut proof: Vec<sigma_or>, j: Choice) -> bool{
+    let message1: String= String::from("dlog_{h}A or dlog_{h}B");
+    let message2: String= String::from("dlog_{g}pk or dlog_{g}AB");
+
+    let FS = 
+        if j.unwrap_u8()==0{
+           Scalar::from_bits( hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
+                                            .chain(&proof[0].left.to_bytes())
+                                            .chain(&proof[0].t_0.to_bytes())
+                                            .chain(message1.as_bytes())
+                                            .cloned()               //H(g,pubkey,u,m)
+                                            .collect::<Vec<u8>>()))
+        }
+        else{
+            Scalar::from_bits(hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
+                                            .chain(&proof[0].right.to_bytes())
+                                            .chain(&proof[0].t_1.to_bytes())
+                                            .chain(message1.as_bytes())
+                                            .cloned()               //H(g,pubkey,u,m)
+                                            .collect::<Vec<u8>>()))
+        };
+    proof[0].c_1 = StaticSecret(Scalar::from_bits( FS.to_bytes().iter().zip(proof[0].c_0.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()));
+    let FS2 = Scalar::from_bits(hash(&EDWARDS_BASE2.to_bytes().iter()
+                                .chain(&proof[1].left.to_bytes())
+                                .chain(&proof[1].t_0.to_bytes())
+                                .chain(message2.as_bytes())
+                                .cloned()               //H(g,pubkey,u,m)
+                                .collect::<Vec<u8>>()));
+    proof[1].c_1 = StaticSecret(Scalar::from_bits( FS2.to_bytes().iter().zip(proof[1].c_0.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()));
+    true
+
 }
 fn hash( msg: &[u8] ) -> [u8;32] {
 
@@ -212,7 +295,7 @@ fn hash( msg: &[u8] ) -> [u8;32] {
 /// (u, v) = ((1+y)/(1-y), sqrt(-486664)*u/x)
 /// (x, y) = (sqrt(-486664)*u/v, (u-1)/(u+1))
 /// return z c t as the transcript of a schnorr proof
-pub fn simulator(pubc: PublicKey,diff_base:bool) -> (StaticSecret,StaticSecret,PublicKey) {
+fn simulator(pubc: PublicKey,diff_base:bool) -> (StaticSecret,StaticSecret,PublicKey) {
     let z = StaticSecret::new(&mut OsRng);
     let c = StaticSecret::new(&mut OsRng);
     let t= 
