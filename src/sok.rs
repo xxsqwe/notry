@@ -272,7 +272,13 @@ pub fn sok_verify(mut proof: Vec<sigma_or>, j: Choice) -> bool{
                                 .cloned()               //H(g,pubkey,u,m)
                                 .collect::<Vec<u8>>()));
     proof[1].c_1 = StaticSecret(Scalar::from_bits( FS2.to_bytes().iter().zip(proof[1].c_0.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()));
-    true
+    
+    if proof[0].verify(false) && proof[1].verify(true){
+        true
+    }
+    else{
+        false
+    }
 
 }
 fn hash( msg: &[u8] ) -> [u8;32] {
