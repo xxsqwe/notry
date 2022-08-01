@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use sha2::{Sha256,Digest};
 use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED};
 use curve25519_dalek::montgomery::MontgomeryPoint;
@@ -8,7 +10,6 @@ use curve25519_dalek::scalar::Scalar;
 
 use rand_core::CryptoRng;
 use rand_core::RngCore;
-
 
 use zeroize::Zeroize;
 
@@ -25,9 +26,14 @@ pub fn hash( msg: &[u8] ) -> [u8;32] {
     let res = hasher.finalize();
     let mut output = [0u8; 32];
     output.copy_from_slice(res.as_slice());
-    println!("hash:{:?}",output);
+   // println!("hash:{:?}",output);
     output
 }
+
+pub fn xor(left:[u8;32],right:[u8;32]) -> [u8;32]{
+    left.iter().zip(right).map(|(x,y)| x^y).collect::<Vec<u8>>().try_into().unwrap()
+}
+
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Zeroize)]
 pub struct PublicKey(pub(crate) EdwardsPoint);
 
@@ -90,6 +96,7 @@ impl StaticSecret {
         self.0.to_bytes()
     }
 }
+    
 
 impl From<[u8; 32]> for StaticSecret {
     /// Load a secret key from a byte array.

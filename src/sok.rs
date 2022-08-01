@@ -1,12 +1,15 @@
 
+
+use std::fmt::Result;
+
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED};
-
-
-//use sha2::{Digest, Sha256};
+use curve25519_dalek::edwards::{EdwardsPoint};
+use sha2::{Sha256};
+use hkdf::Hkdf;
 //use core::ops::{Add, Sub};
 
-use crate::utils::{hash,PublicKey,StaticSecret,EDWARDS_BASE2};
+use crate::utils::{hash,PublicKey,StaticSecret,EDWARDS_BASE2,xor};
 
 use subtle::Choice;
 use rand::rngs::OsRng;
@@ -15,7 +18,7 @@ use zeroize::Zeroize;
 
 
 
-#[derive(Zeroize)]
+#[derive(Zeroize, Debug)]
 pub struct SigmaOr{
     t_0: PublicKey,
     c_0: StaticSecret,
@@ -45,7 +48,20 @@ impl SigmaOr{
             };
         first && second
     }
+    pub fn new()-> Self{
+        SigmaOr{
+            t_0: PublicKey(EdwardsPoint::default()),
+            c_0: StaticSecret(Scalar::zero()),
+            z_0: StaticSecret(Scalar::zero()),
+            t_1: PublicKey(EdwardsPoint::default()),
+            c_1: StaticSecret(Scalar::zero()),
+            z_1: StaticSecret(Scalar::zero()),
+            left: PublicKey(EdwardsPoint::default()),
+            right: PublicKey(EdwardsPoint::default()),
+        }
+    }
 }
+
 /// SoK, which take two group points as a input,
 /// produces a compund proof based on schnorr signature.
 /// Let Choice 0 for proving left part, where 1 as the right part, of the formula
@@ -58,7 +74,9 @@ impl SigmaOr{
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 #[allow(unused_variables)]
-pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: StaticSecret,  j:Choice)->Vec<(PublicKey,PublicKey,Scalar,Scalar,Scalar)>{
+pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: StaticSecret,  j:Choice) -> Vec<SigmaOr> { 
+    let Result: Vec<SigmaOr> = Vec::new();
+    
     let first_part=
     if j.unwrap_u8()==0u8 { //prove dlog_{h}A, send (t_0,t_1) and (c_0,z_0,z_1) to Verifier. j=0,d=1
         let (c_d,z_d,t_d)=simulator(B, false);
@@ -74,13 +92,12 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
         let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors
         let z_j = t_j.0+c_j*secret.0; // trick. from Vec to array
     
-        (u_j,t_d,c_j,z_j,z_d.0)
-
-       
+        (u_j,t_d,StaticSecret(c_j),StaticSecret(z_j),z_d)
         
         
 
     }
+       
     else{   //where j=1, d=0
         let (c_d,z_d,t_d)=simulator(A, false);
         let t_j = StaticSecret::new(&mut OsRng);
@@ -95,8 +112,23 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
         let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors, trick. from Vec to array
         let z_j = t_j.0+c_j*secret.0; //
     
-        (t_d,u_j,c_d.0,z_d.0,z_j)
+        (t_d,u_j,c_d,z_d,StaticSecret(z_j))
     };
+    let mut result=Vec::new();
+    {
+    let simga_proof = SigmaOr {
+            t_0:first_part.0,
+            t_1:first_part.1,
+            c_0:first_part.2,
+            c_1:StaticSecret(Scalar::zero()),
+            z_0:first_part.3,
+            z_1:first_part.4,
+            left:A,
+            right:B,
+        }; 
+    
+    result.push(simga_proof);
+    }
     let second_part=
         {
             let (c_d,z_d,t_d)=simulator(PublicKey(A.0+B.0), true);
@@ -112,11 +144,25 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
                                             .collect::<Vec<u8>>()));
             let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors
             let z_j = t_j.0+ c_j*sk.0;
-            (u_j,t_d,c_j,z_j,z_d.0)
+            (u_j,t_d,StaticSecret(c_j),StaticSecret(z_j),z_d)
 
 
         };
-    vec![first_part,second_part]
+    {
+        let simga_proof = SigmaOr {
+            t_0:second_part.0,
+            t_1:second_part.1,
+            c_0:second_part.2,
+            c_1:StaticSecret(Scalar::zero()),
+            z_0:second_part.3,
+            z_1:second_part.4,
+            left:pk,
+            right:PublicKey(A.0+B.0),
+        }; 
+        result.push(simga_proof);
+    }
+    
+    result
     
 }
 pub fn sok_verify(mut proof: Vec<SigmaOr>, j: Choice) -> bool{
@@ -140,14 +186,14 @@ pub fn sok_verify(mut proof: Vec<SigmaOr>, j: Choice) -> bool{
                                             .cloned()               //H(g,pubkey,u,m)
                                             .collect::<Vec<u8>>()))
         };
-    proof[0].c_1 = StaticSecret(Scalar::from_bits( FS.to_bytes().iter().zip(proof[0].c_0.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()));
+    proof[0].c_1 = StaticSecret(Scalar::from_bits( xor(FS.to_bytes(),proof[0].c_0.to_bytes())));
     let FS2 = Scalar::from_bits(hash(&EDWARDS_BASE2.to_bytes().iter()
                                 .chain(&proof[1].left.to_bytes())
                                 .chain(&proof[1].t_0.to_bytes())
                                 .chain(message2.as_bytes())
                                 .cloned()               //H(g,pubkey,u,m)
                                 .collect::<Vec<u8>>()));
-    proof[1].c_1 = StaticSecret(Scalar::from_bits( FS2.to_bytes().iter().zip(proof[1].c_0.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()));
+    proof[1].c_1 = StaticSecret(Scalar::from_bits( xor(FS2.to_bytes(), proof[1].c_0.to_bytes())));
 
     if proof[0].verify(false) && proof[1].verify(true){
         true
@@ -183,6 +229,7 @@ fn simulator(pubc: PublicKey,diff_base:bool) -> (StaticSecret,StaticSecret,Publi
     //println!{"z={:?}\nc={:?}\nt={:?}",z.to_bytes(),c.to_bytes(),t};
     (z,c,t)
 }
+
 #[test]
 fn test_simulator() {
     let alice_secret = StaticSecret::new(&mut OsRng);
@@ -204,13 +251,31 @@ fn test_hash(){
     println!("hash of msg:{:?}",FS);
     println!("xored:{:?}",      FS.iter().zip(alice_secret.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>());
 
-
+    let hf=Hkdf::<Sha256>::new(None,&alice_public.to_bytes().iter().chain(message.as_bytes()).cloned().collect::<Vec<u8>>());
+    let mut okm = [0u8;32];
+    hf.expand(&[] as &[u8;0], &mut okm);
+    let rho=hash(&okm.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());
+    println!("rho:{:?}",rho.as_slice());
+    println!("output key material:{:?}",rho.iter().zip(alice_secret.0.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>());
+    println!("xor:{:?}",xor(rho,alice_secret.to_bytes()));
+    
     assert_eq!(1,2)
 }
 
+
+
 #[test]
 fn test_sok(){
-
+    let secret_a = StaticSecret::new(&mut OsRng);
+    let A = PublicKey::from(&secret_a);
+    let secret_b = StaticSecret::new(&mut OsRng);
+    let B = PublicKey::from(&secret_b);
+    let sk = StaticSecret::new(&mut OsRng);
+    let pk = PublicKey::from(&secret_a);
+    let Signature_of_Knowledge = sok(A,B,pk,secret_b,sk,Choice::from(1));
+    assert_eq!(true, sok_verify( Signature_of_Knowledge,Choice::from(1)));
 }
+
+
 
 
