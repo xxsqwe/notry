@@ -4,7 +4,7 @@ use sha2::{Sha256,Digest};
 use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_TABLE};
 use curve25519_dalek::montgomery::MontgomeryPoint;
 use curve25519_dalek::edwards::{EdwardsPoint,CompressedEdwardsY};
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::ristretto::{RistrettoPoint,CompressedRistretto};
 use curve25519_dalek::scalar::Scalar;
 
 
@@ -19,11 +19,11 @@ pub const EDWARDS_BASE2: CompressedEdwardsY=
                         0x60,0x06,0x6d,0xd6,0x67,0x7e,0xec,0xc4,
                         0x44,0x48,0x87,0x73,0x3b,0xb7,0x74,0x49,
                         0x99,0x93,0x3b,0xb0,0x08,0x8b,0xb0,0x0a]);
-pub const RISTRETTO_BASEPOINT2:RistrettoPoint= RistrettoPoint(
-    CompressedEdwardsY( [0x31,0x1d,0xdd,0xd2,0x2e,0xe8,0x8d,0xd6,
-                        0x60,0x06,0x6d,0xd6,0x67,0x7e,0xec,0xc4,
-                        0x44,0x48,0x87,0x73,0x3b,0xb7,0x74,0x49,
-                        0x99,0x93,0x3b,0xb0,0x08,0x8b,0xb0,0x0a]).decompress().unwrap());
+pub const RISTRETTO_BASEPOINT2: CompressedRistretto = CompressedRistretto(
+    [0x7a ,0x1e ,0xba ,0xb2 ,0xbc ,0xea ,0x96 ,0x5c ,
+     0x49 ,0x4e ,0x43 ,0x78 ,0xd5 ,0x4e ,0xe0 ,0x8c ,
+     0x3e ,0x6d ,0xe6 ,0x9d ,0x49 ,0xaa ,0x73 ,0xe7 ,
+     0x85 ,0x04 ,0x13 ,0x1b ,0xcb ,0x33 ,0x50 ,0x6d]);
 pub fn hash( msg: &[u8] ) -> [u8;32] {
 
     let mut hasher = Sha256::new();
@@ -40,14 +40,14 @@ pub fn xor(left:[u8;32],right:[u8;32]) -> [u8;32]{
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Zeroize)]
-pub struct PublicKey(pub(crate) EdwardsPoint);
+pub struct PublicKey(pub(crate) RistrettoPoint);
 
 impl From<&[u8]> for PublicKey{
 
     /// Given a byte array, construct a x25519 `PublicKey`.
   
     fn from(bytes: &[u8]) -> PublicKey{
-        PublicKey(CompressedEdwardsY::from_slice(bytes).decompress().unwrap())
+        PublicKey(CompressedRistretto::from_slice(bytes).decompress().unwrap())
 
     }
 }
@@ -113,7 +113,8 @@ impl From<[u8; 32]> for StaticSecret {
 impl<'a> From<&'a StaticSecret> for PublicKey {
     /// Given an x25519 [`StaticSecret`] key, compute its corresponding [`PublicKey`].
     fn from(secret: &'a StaticSecret) -> PublicKey {
-        PublicKey(&ED25519_BASEPOINT_TABLE * &secret.0)
+        //PublicKey(&ED25519_BASEPOINT_TABLE * &secret.0)
+        PublicKey(&RISTRETTO_BASEPOINT_TABLE * &secret.0)
     }
 }
 
@@ -139,7 +140,7 @@ fn clamp_scalar(mut scalar: [u8; 32]) -> Scalar {
 /// counterparty's [`PublicKey`].
 #[derive(Zeroize)]
 #[zeroize(drop)]
-pub struct SharedSecret(pub(crate) EdwardsPoint);
+pub struct SharedSecret(pub(crate) RistrettoPoint);
 
 impl SharedSecret {
     /// Convert this shared secret to a byte array.
