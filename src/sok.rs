@@ -3,13 +3,15 @@
 
 
 use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED};
+use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_TABLE};
 use curve25519_dalek::edwards::{EdwardsPoint};
+use curve25519_dalek::ristretto::{RistrettoPoint,CompressedRistretto};
+
 use sha2::{Sha256};
 use hkdf::Hkdf;
 //use core::ops::{Add, Sub};
 
-use crate::utils::{hash,PublicKey,StaticSecret,EDWARDS_BASE2,xor};
+use crate::utils::{hash,PublicKey,StaticSecret,EDWARDS_BASE2,xor,RISTRETTO_BASEPOINT2};
 
 use subtle::Choice;
 use rand::rngs::OsRng;
@@ -33,32 +35,32 @@ impl SigmaOr{
     pub fn verify(&self,diff_base:bool) -> bool{
         let first = 
             if diff_base{
-                &self.z_0.0*&EDWARDS_BASE2.decompress().unwrap() == self.t_0.0+self.left.0*self.c_0.0
+                &self.z_0.0*&RISTRETTO_BASEPOINT2.decompress().unwrap() == self.t_0.0+self.left.0*self.c_0.0
         }
             else{
-                &self.z_0.0*&ED25519_BASEPOINT_TABLE == self.t_0.0+self.left.0*self.c_0.0
+                &self.z_0.0*&RISTRETTO_BASEPOINT_TABLE == self.t_0.0+self.left.0*self.c_0.0
             
         };
         let second = 
             if diff_base{
-                &self.z_1.0*&EDWARDS_BASE2.decompress().unwrap() == self.t_1.0+self.right.0*self.c_1.0
+                &self.z_1.0*&RISTRETTO_BASEPOINT2.decompress().unwrap() == self.t_1.0+self.right.0*self.c_1.0
             }
             else{
-                &self.z_1.0*&ED25519_BASEPOINT_TABLE == self.t_1.0+self.right.0*self.c_1.0
+                &self.z_1.0*&RISTRETTO_BASEPOINT_TABLE == self.t_1.0+self.right.0*self.c_1.0
             };
             println!("left={:?}, right = {:?}",first,second);
         first && second
     }
     pub fn new()-> Self{
         SigmaOr{
-            t_0: PublicKey(EdwardsPoint::default()),
+            t_0: PublicKey(RistrettoPoint::default()),
             c_0: StaticSecret(Scalar::zero()),
             z_0: StaticSecret(Scalar::zero()),
-            t_1: PublicKey(EdwardsPoint::default()),
+            t_1: PublicKey(RistrettoPoint::default()),
             c_1: StaticSecret(Scalar::zero()),
             z_1: StaticSecret(Scalar::zero()),
-            left: PublicKey(EdwardsPoint::default()),
-            right: PublicKey(EdwardsPoint::default()),
+            left: PublicKey(RistrettoPoint::default()),
+            right: PublicKey(RistrettoPoint::default()),
         }
     }
 }
@@ -84,7 +86,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
         let t_j=StaticSecret::new(&mut OsRng);
         let u_j = PublicKey::from(&t_j);
         let message: String= String::from("dlog_{h}A or dlog_{h}B");
-        let FS = Scalar::from_bits( hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
+        let FS = Scalar::from_bits( hash(&RISTRETTO_BASEPOINT_COMPRESSED.to_bytes().iter()
                                             .chain(&A.to_bytes())
                                             .chain(&u_j.to_bytes())
                                             .chain(message.as_bytes())
@@ -104,7 +106,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
         let t_j = StaticSecret::new(&mut OsRng);
         let u_j = PublicKey::from(&t_j);
         let message: String= String::from("dlog_{h}A or dlog_{h}B");
-        let FS = Scalar::from_bits(hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
+        let FS = Scalar::from_bits(hash(&RISTRETTO_BASEPOINT_COMPRESSED.to_bytes().iter()
                                             .chain(&B.to_bytes())
                                             .chain(&u_j.to_bytes())
                                             .chain(message.as_bytes())
@@ -134,21 +136,21 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
         {
             let (z_d,c_d,t_d)=simulator(PublicKey(A.0+B.0), true);
             let t_j = StaticSecret::new(&mut OsRng);
-            let u_j = PublicKey( &t_j.0 * &EDWARDS_BASE2.decompress().unwrap());
+            let u_j = PublicKey( &t_j.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap());
             let message: String= String::from("dlog_{g}pk or dlog_{g}AB");
 
-            let FS = Scalar::from_bits(hash(&EDWARDS_BASE2.to_bytes().iter()
+            let FS = Scalar::from_bits(hash(&RISTRETTO_BASEPOINT2.to_bytes().iter()
                                             .chain(&pk.to_bytes())
                                             .chain(&u_j.to_bytes())
                                             .chain(message.as_bytes())
                                             .cloned()               //H(g,pubkey,u,m)
                                             .collect::<Vec<u8>>()));
             let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors
-            println!("t={:?}\n c={:?}\n x = {:?}",t_j.0,c_j,ED25519_BASEPOINT_COMPRESSED.decompress().unwrap());
+            println!("t={:?}\n c={:?}\n x = {:?}",t_j,c_j,sk);
             
             let z_j = t_j.0 + c_j * sk.0;
             
-                println!("left:{:?}",&z_j * &EDWARDS_BASE2.decompress().unwrap());
+                println!("left:{:?}",&z_j * &RISTRETTO_BASEPOINT2.decompress().unwrap());
                 println!("right:{:?}",u_j.0 + c_j * pk.0);
             
             (u_j,t_d,StaticSecret(c_j),StaticSecret(z_j),z_d)
@@ -179,7 +181,7 @@ pub fn sok_verify(mut proof: Vec<SigmaOr>, j: Choice) -> bool{
 
     let FS = 
         if j.unwrap_u8()==0{
-           Scalar::from_bits( hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
+           Scalar::from_bits( hash(&RISTRETTO_BASEPOINT_COMPRESSED.to_bytes().iter()
                                             .chain(&proof[0].left.to_bytes())
                                             .chain(&proof[0].t_0.to_bytes())
                                             .chain(message1.as_bytes())
@@ -187,7 +189,7 @@ pub fn sok_verify(mut proof: Vec<SigmaOr>, j: Choice) -> bool{
                                             .collect::<Vec<u8>>()))
         }
         else{
-            Scalar::from_bits(hash(&ED25519_BASEPOINT_COMPRESSED.to_bytes().iter()
+            Scalar::from_bits(hash(&RISTRETTO_BASEPOINT_COMPRESSED.to_bytes().iter()
                                             .chain(&proof[0].right.to_bytes())
                                             .chain(&proof[0].t_1.to_bytes())
                                             .chain(message1.as_bytes())
@@ -195,7 +197,7 @@ pub fn sok_verify(mut proof: Vec<SigmaOr>, j: Choice) -> bool{
                                             .collect::<Vec<u8>>()))
         };
     proof[0].c_1 = StaticSecret(Scalar::from_bits( xor(FS.to_bytes(),proof[0].c_0.to_bytes())));
-    let FS2 = Scalar::from_bits(hash(&EDWARDS_BASE2.to_bytes().iter()
+    let FS2 = Scalar::from_bits(hash(&RISTRETTO_BASEPOINT2.to_bytes().iter()
                                 .chain(&proof[1].left.to_bytes())
                                 .chain(&proof[1].t_0.to_bytes())
                                 .chain(message2.as_bytes())
@@ -233,7 +235,7 @@ fn simulator(pubc: PublicKey,diff_base:bool) -> (StaticSecret,StaticSecret,Publi
     let c = StaticSecret::new(&mut OsRng);
     let t= 
         if diff_base{
-            PublicKey(&z.0*&(EDWARDS_BASE2.decompress().unwrap())-c.0*pubc.0)
+            PublicKey(&z.0*&(RISTRETTO_BASEPOINT2.decompress().unwrap())-c.0*pubc.0)
         }
         
         else{
@@ -246,11 +248,13 @@ fn simulator(pubc: PublicKey,diff_base:bool) -> (StaticSecret,StaticSecret,Publi
 
 #[test]
 fn test_simulator() {
+    println!("random:{:?}",RistrettoPoint::random( &mut OsRng).compress());
+
     let alice_secret = StaticSecret::new(&mut OsRng);
     let alice_public = PublicKey::from(&alice_secret);
     println!("Alice Public={:?}", alice_public);
     let s=simulator(alice_public,true);
-    assert_eq!(&s.0.0*&(EDWARDS_BASE2.decompress().unwrap()),s.2.0+alice_public.0*s.1.0);
+    assert_eq!(&s.0.0*&(RISTRETTO_BASEPOINT2.decompress().unwrap()),s.2.0+alice_public.0*s.1.0);
 }
 #[test]
 fn test_hash(){
@@ -287,11 +291,10 @@ fn test_sok(){
     let B = PublicKey::from(&secret_b);
 
     let sk = StaticSecret::new(&mut OsRng);
-    let pk = &sk.0 * &EDWARDS_BASE2.decompress().unwrap();
+    let pk = &sk.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap();
     //let Signature_of_Knowledge = sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0));
     assert_eq!(true, sok_verify( sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0)),Choice::from(0)));
 }
-
 
 
 
