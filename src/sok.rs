@@ -1,6 +1,6 @@
 
 
-use std::fmt::Result;
+
 
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED};
@@ -46,6 +46,7 @@ impl SigmaOr{
             else{
                 &self.z_1.0*&ED25519_BASEPOINT_TABLE == self.t_1.0+self.right.0*self.c_1.0
             };
+            println!("left={:?}, right = {:?}",first,second);
         first && second
     }
     pub fn new()-> Self{
@@ -79,7 +80,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
     
     let first_part=
     if j.unwrap_u8()==0u8 { //prove dlog_{h}A, send (t_0,t_1) and (c_0,z_0,z_1) to Verifier. j=0,d=1
-        let (c_d,z_d,t_d)=simulator(B, false);
+        let (z_d,c_d,t_d)=simulator(B, false);
         let t_j=StaticSecret::new(&mut OsRng);
         let u_j = PublicKey::from(&t_j);
         let message: String= String::from("dlog_{h}A or dlog_{h}B");
@@ -90,7 +91,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
                                             .cloned()               //H(g,pubkey,u,m)
                                             .collect::<Vec<u8>>()));// Array Catenation
         let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors
-        let z_j = t_j.0+c_j*secret.0; // trick. from Vec to array
+        let z_j = t_j.0 + c_j * secret.0; // trick. from Vec to array
     
         (u_j,t_d,StaticSecret(c_j),StaticSecret(z_j),z_d)
         
@@ -99,7 +100,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
     }
        
     else{   //where j=1, d=0
-        let (c_d,z_d,t_d)=simulator(A, false);
+        let (z_d,c_d,t_d)=simulator(A, false);
         let t_j = StaticSecret::new(&mut OsRng);
         let u_j = PublicKey::from(&t_j);
         let message: String= String::from("dlog_{h}A or dlog_{h}B");
@@ -129,11 +130,11 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
     
     result.push(simga_proof);
     }
-    let second_part=
+    let second_part=//by default the second part of the proof is to prove knowing the secret key of the corresponding public key pk.
         {
-            let (c_d,z_d,t_d)=simulator(PublicKey(A.0+B.0), true);
+            let (z_d,c_d,t_d)=simulator(PublicKey(A.0+B.0), true);
             let t_j = StaticSecret::new(&mut OsRng);
-            let u_j = PublicKey::from(&t_j);
+            let u_j = PublicKey( &t_j.0 * &EDWARDS_BASE2.decompress().unwrap());
             let message: String= String::from("dlog_{g}pk or dlog_{g}AB");
 
             let FS = Scalar::from_bits(hash(&EDWARDS_BASE2.to_bytes().iter()
@@ -143,11 +144,18 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
                                             .cloned()               //H(g,pubkey,u,m)
                                             .collect::<Vec<u8>>()));
             let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors
-            let z_j = t_j.0+ c_j*sk.0;
+            println!("t={:?}\n c={:?}\n x = {:?}",t_j.0,c_j,ED25519_BASEPOINT_COMPRESSED.decompress().unwrap());
+            
+            let z_j = t_j.0 + c_j * sk.0;
+            
+                println!("left:{:?}",&z_j * &EDWARDS_BASE2.decompress().unwrap());
+                println!("right:{:?}",u_j.0 + c_j * pk.0);
+            
             (u_j,t_d,StaticSecret(c_j),StaticSecret(z_j),z_d)
 
 
         };
+        
     {
         let simga_proof = SigmaOr {
             t_0:second_part.0,
@@ -195,14 +203,20 @@ pub fn sok_verify(mut proof: Vec<SigmaOr>, j: Choice) -> bool{
                                 .collect::<Vec<u8>>()));
     proof[1].c_1 = StaticSecret(Scalar::from_bits( xor(FS2.to_bytes(), proof[1].c_0.to_bytes())));
 
-    if proof[0].verify(false) && proof[1].verify(true){
-        true
+    if proof[0].verify(false) {
+        if proof[1].verify(true){
+         return   true;
+    }
+        else{
+         return   false;
+        }
     }
     else{
-        false
+        println!("first part sigma:{:?}",proof[0]);
+        return false;
     }
-
 }
+
 
 /// a simulator is need for Sigma-OR proof, which is a fundamental conponet in our Sok(Signature of Knowledge) protocol. 
 /// let pubc be the A, B, AB, and pk
@@ -259,7 +273,7 @@ fn test_hash(){
     println!("output key material:{:?}",rho.iter().zip(alice_secret.0.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>());
     println!("xor:{:?}",xor(rho,alice_secret.to_bytes()));
     
-    assert_eq!(1,2)
+    assert_eq!(1,1)
 }
 
 
@@ -268,12 +282,14 @@ fn test_hash(){
 fn test_sok(){
     let secret_a = StaticSecret::new(&mut OsRng);
     let A = PublicKey::from(&secret_a);
+
     let secret_b = StaticSecret::new(&mut OsRng);
     let B = PublicKey::from(&secret_b);
+
     let sk = StaticSecret::new(&mut OsRng);
-    let pk = PublicKey::from(&secret_a);
-    let Signature_of_Knowledge = sok(A,B,pk,secret_b,sk,Choice::from(1));
-    assert_eq!(true, sok_verify( Signature_of_Knowledge,Choice::from(1)));
+    let pk = &sk.0 * &EDWARDS_BASE2.decompress().unwrap();
+    //let Signature_of_Knowledge = sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0));
+    assert_eq!(true, sok_verify( sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0)),Choice::from(0)));
 }
 
 

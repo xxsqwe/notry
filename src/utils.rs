@@ -1,9 +1,10 @@
 use std::fmt::Debug;
 
 use sha2::{Sha256,Digest};
-use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED};
+use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_TABLE};
 use curve25519_dalek::montgomery::MontgomeryPoint;
 use curve25519_dalek::edwards::{EdwardsPoint,CompressedEdwardsY};
+use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
 
@@ -18,7 +19,11 @@ pub const EDWARDS_BASE2: CompressedEdwardsY=
                         0x60,0x06,0x6d,0xd6,0x67,0x7e,0xec,0xc4,
                         0x44,0x48,0x87,0x73,0x3b,0xb7,0x74,0x49,
                         0x99,0x93,0x3b,0xb0,0x08,0x8b,0xb0,0x0a]);
-
+pub const RISTRETTO_BASEPOINT2:RistrettoPoint= RistrettoPoint(
+    CompressedEdwardsY( [0x31,0x1d,0xdd,0xd2,0x2e,0xe8,0x8d,0xd6,
+                        0x60,0x06,0x6d,0xd6,0x67,0x7e,0xec,0xc4,
+                        0x44,0x48,0x87,0x73,0x3b,0xb7,0x74,0x49,
+                        0x99,0x93,0x3b,0xb0,0x08,0x8b,0xb0,0x0a]).decompress().unwrap());
 pub fn hash( msg: &[u8] ) -> [u8;32] {
 
     let mut hasher = Sha256::new();
@@ -71,7 +76,7 @@ impl PublicKey{
     feature = "serde",
     derive(our_serde::Serialize, our_serde::Deserialize)
 )]
-#[derive(Clone, Zeroize)]
+#[derive(Clone, Zeroize, Debug)]
 #[zeroize(drop)]
 pub struct StaticSecret(
     #[cfg_attr(feature = "serde", serde(with = "AllowUnreducedScalarBytes"))] pub(crate) Scalar,
