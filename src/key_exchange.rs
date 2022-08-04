@@ -1,7 +1,7 @@
 use hkdf::Hkdf;
 use sha2::Sha256;
 
-use crate::utils::{PublicKey,SharedSecret,StaticSecret,xor};
+use crate::utils::{PublicKey,SharedSecret,StaticSecret,xor,hash};
 use crate::sok::{sok,sok_verify,SigmaOr};
 
 use rand::rngs::OsRng;
@@ -14,6 +14,7 @@ pub fn key_exchange(Role:bool, Sk:StaticSecret, MyPk:PublicKey, OtherPK: PublicK
         
     }
     else{
+        //Alice
         let Gamma = StaticSecret::new(&mut OsRng);
         let A = PublicKey::from(&Gamma);
         Send(A);
@@ -26,21 +27,22 @@ pub fn key_exchange(Role:bool, Sk:StaticSecret, MyPk:PublicKey, OtherPK: PublicK
 
             let KeyMatereial = A.to_bytes().iter()
                                                                 .chain(&B.to_bytes())
-                                                                .chain(&SoK_a[0].0.to_bytes())
-                                                                .chain(&SoK_a[0].1.to_bytes())
-                                                                .chain(&SoK_a[0].2.to_bytes())
-                                                                .chain(&SoK_a[0].3.to_bytes())
-                                                                .chain(&SoK_a[0].4.to_bytes())
-                                                                .chain(&K.compress().to_bytes());
+                                                                .chain(&SoK_a[0].to_bytes())
+                                                                .chain(&SoK_a[1].to_bytes())
+                                                                .chain(&SoK_b[0].to_bytes())
+                                                                .chain(&SoK_b[1].to_bytes())
+                                                                .chain(&K.compress().to_bytes())
+                                                                .cloned()
+                                                                .collect::<Vec<_>>();
             let mut k_sess = [0u8;32];
             let hf = Hkdf::<Sha256>::new(None,&KeyMatereial);
-            hf.expand(&[] as &[u8;0], &mut k_sess); //KDF(A || B || σ A || σ B || K)
-            let rho = hash(&okm.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());//H(k_sess|| “avow”)
+            hf.expand(&[] as &[u8;0],  &mut k_sess); //KDF(A || B || σ A || σ B || K)
+            let rho = hash(&k_sess.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());//H(k_sess|| “avow”)
             let alpha = xor(rho,Gamma.0.to_bytes());
             
         }
         else{
-            panic!("SoK verified failed");
+            panic!("SoK from Bob is invalid");
         }
     }
 }

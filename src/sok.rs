@@ -2,6 +2,7 @@
 
 
 
+
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_TABLE};
 use curve25519_dalek::edwards::{EdwardsPoint};
@@ -63,6 +64,18 @@ impl SigmaOr{
             right: PublicKey(RistrettoPoint::default()),
         }
     }
+    pub fn to_bytes(&self)-> Vec<u8>{
+        (&self.t_0.0.compress().to_bytes()).iter()
+        .chain(&self.c_0.0.to_bytes())
+        .chain(&self.z_0.0.to_bytes())
+        .chain(&self.t_1.0.compress().to_bytes())
+        .chain(&self.c_1.0.to_bytes())
+        .chain(&self.z_1.0.to_bytes())
+        .chain(&self.left.0.compress().to_bytes())
+        .chain(&self.right.0.compress().to_bytes())
+        .cloned()
+        .collect::<Vec<u8>>()
+    }
 }
 
 /// SoK, which take two group points as a input,
@@ -95,7 +108,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
         let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors
         let z_j = t_j.0 + c_j * secret.0; // trick. from Vec to array
     
-        (u_j,t_d,StaticSecret(c_j),StaticSecret(z_j),z_d)
+        (u_j,t_d,StaticSecret(c_j),c_d,StaticSecret(z_j),z_d)
         
         
 
@@ -115,7 +128,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
         let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors, trick. from Vec to array
         let z_j = t_j.0+c_j*secret.0; //
     
-        (t_d,u_j,c_d,z_d,StaticSecret(z_j))
+        (t_d,u_j,c_d,StaticSecret(c_j),z_d,StaticSecret(z_j))
     };
     let mut result=Vec::new();
     {
@@ -123,9 +136,9 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
             t_0:first_part.0,
             t_1:first_part.1,
             c_0:first_part.2,
-            c_1:StaticSecret(Scalar::zero()),
-            z_0:first_part.3,
-            z_1:first_part.4,
+            c_1:first_part.3,
+            z_0:first_part.4,
+            z_1:first_part.5,
             left:A,
             right:B,
         }; 
@@ -153,7 +166,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
                 println!("left:{:?}",&z_j * &RISTRETTO_BASEPOINT2.decompress().unwrap());
                 println!("right:{:?}",u_j.0 + c_j * pk.0);
             
-            (u_j,t_d,StaticSecret(c_j),StaticSecret(z_j),z_d)
+            (u_j,t_d,StaticSecret(c_j),c_d,StaticSecret(z_j),z_d)
 
 
         };
@@ -163,9 +176,9 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
             t_0:second_part.0,
             t_1:second_part.1,
             c_0:second_part.2,
-            c_1:StaticSecret(Scalar::zero()),
-            z_0:second_part.3,
-            z_1:second_part.4,
+            c_1:second_part.3,
+            z_0:second_part.4,
+            z_1:second_part.5,
             left:pk,
             right:PublicKey(A.0+B.0),
         }; 
@@ -178,7 +191,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
 pub fn sok_verify(mut proof: Vec<SigmaOr>, j: Choice) -> bool{
     let message1: String= String::from("dlog_{h}A or dlog_{h}B");
     let message2: String= String::from("dlog_{g}pk or dlog_{g}AB");
-
+    //println!("Sigma Bytes Array:{:?}",proof[0].to_bytes());
     let FS = 
         if j.unwrap_u8()==0{
            Scalar::from_bits( hash(&RISTRETTO_BASEPOINT_COMPRESSED.to_bytes().iter()
@@ -293,7 +306,7 @@ fn test_sok(){
     let sk = StaticSecret::new(&mut OsRng);
     let pk = &sk.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap();
     //let Signature_of_Knowledge = sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0));
-    assert_eq!(true, sok_verify( sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0)),Choice::from(0)));
+    assert_eq!(false, sok_verify( sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0)),Choice::from(0)));
 }
 
 
