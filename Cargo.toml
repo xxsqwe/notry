@@ -17,6 +17,6 @@ zeroize = { version = "=1.3", default-features = false, features = ["zeroize_der
 sha2 = "0.10.2"
 subtle = { version = "^2.2.1", default-features = false }
 hex-literal = "0.2.2"
-
+aes-gcm = "0.10.1"
 [dependencies.x25519-dalek]
 version = "1"

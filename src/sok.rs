@@ -1,8 +1,6 @@
 
 
-
-
-
+use aes_gcm::aead::generic_array::GenericArray;
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_TABLE};
 use curve25519_dalek::edwards::{EdwardsPoint};
@@ -11,7 +9,10 @@ use curve25519_dalek::ristretto::{RistrettoPoint,CompressedRistretto};
 use sha2::{Sha256};
 use hkdf::Hkdf;
 //use core::ops::{Add, Sub};
-
+use aes_gcm::{
+    aead::{Aead, KeyInit},
+    Aes256Gcm, Nonce // Or `Aes128Gcm`
+};
 use crate::utils::{hash,PublicKey,StaticSecret,EDWARDS_BASE2,xor,RISTRETTO_BASEPOINT2};
 
 use subtle::Choice;
@@ -290,7 +291,13 @@ fn test_hash(){
     println!("output key material:{:?}",rho.iter().zip(alice_secret.0.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>());
     println!("xor:{:?}",xor(rho,alice_secret.to_bytes()));
     
-    assert_eq!(1,1)
+    let key = Aes256Gcm::generate_key(&mut aes_gcm::aead::OsRng);
+    let cipher = Aes256Gcm::new(GenericArray::from_slice(& okm));
+    let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
+    let ciphertext = cipher.encrypt(nonce, b"plaintext message".as_ref()).unwrap();
+    let plaintext = cipher.decrypt(nonce, ciphertext.as_ref()).unwrap();
+    assert_eq!(&plaintext, b"plaintext message");
+    //assert_eq!(1,1)
 }
 
 

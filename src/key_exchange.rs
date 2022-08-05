@@ -8,7 +8,7 @@ use rand::rngs::OsRng;
 use subtle::Choice;
 /// Role 0 for Alice, 1 for Bob
 /// 
-pub fn key_exchange(Role:bool, Sk:StaticSecret, MyPk:PublicKey, OtherPK: PublicKey){
+pub fn key_exchange(Role:bool, Sk:StaticSecret, MyPk:PublicKey, OtherPK: PublicKey) -> PublicKey{
     
     if Role{
         
@@ -39,7 +39,7 @@ pub fn key_exchange(Role:bool, Sk:StaticSecret, MyPk:PublicKey, OtherPK: PublicK
             hf.expand(&[] as &[u8;0],  &mut k_sess); //KDF(A || B || σ A || σ B || K)
             let rho = hash(&k_sess.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());//H(k_sess|| “avow”)
             let alpha = xor(rho,Gamma.0.to_bytes());
-            
+            return PublicKey(K)
         }
         else{
             panic!("SoK from Bob is invalid");
