@@ -13,7 +13,7 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce // Or `Aes128Gcm`
 };
-use crate::utils::{hash,PublicKey,StaticSecret,EDWARDS_BASE2,xor,RISTRETTO_BASEPOINT2};
+use crate::utils::{hash,PublicKey,StaticSecret,EDWARDS_BASE2,xor,RISTRETTO_BASEPOINT2,get_cert_paths};
 
 use subtle::Choice;
 use rand::rngs::OsRng;
@@ -21,6 +21,11 @@ use rand::rngs::OsRng;
 use zeroize::Zeroize;
 
 
+use crate::network::{Start_Client,Start_Judge};
+use std::{path::PathBuf};
+use futures::{future, prelude::*, stream};
+use tokio::{runtime, time};
+use bytes::{Bytes, Buf};
 
 #[derive(Zeroize, Debug)]
 pub struct SigmaOr{
@@ -78,7 +83,20 @@ impl SigmaOr{
         .collect::<Vec<u8>>()
     }
 }
-
+impl From<[u8;256]> for SigmaOr {
+    fn from(bytes: [u8;256]) -> Self {
+        SigmaOr { 
+            t_0:PublicKey( CompressedRistretto(bytes[0..32].try_into().unwrap()).decompress().unwrap()), 
+            c_0:StaticSecret( Scalar::from_bits(bytes[32..64].try_into().unwrap())), 
+            z_0:StaticSecret( Scalar::from_bits(bytes[64..96].try_into().unwrap())), 
+            t_1:PublicKey( CompressedRistretto(bytes[96..128].try_into().unwrap()).decompress().unwrap()), 
+            c_1:StaticSecret( Scalar::from_bits(bytes[128..160].try_into().unwrap())), 
+            z_1:StaticSecret( Scalar::from_bits(bytes[160..192].try_into().unwrap())), 
+            left:PublicKey( CompressedRistretto(bytes[192..224].try_into().unwrap()).decompress().unwrap()), 
+            right:PublicKey( CompressedRistretto(bytes[224..256].try_into().unwrap()).decompress().unwrap()) }
+    }
+    
+}
 /// SoK, which take two group points as a input,
 /// produces a compund proof based on schnorr signature.
 /// Let Choice 0 for proving left part, where 1 as the right part, of the formula
@@ -160,12 +178,12 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
                                             .cloned()               //H(g,pubkey,u,m)
                                             .collect::<Vec<u8>>()));
             let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors
-            println!("t={:?}\n c={:?}\n x = {:?}",t_j,c_j,sk);
+            //println!("t={:?}\n c={:?}\n x = {:?}",t_j,c_j,sk);
             
             let z_j = t_j.0 + c_j * sk.0;
             
-                println!("left:{:?}",&z_j * &RISTRETTO_BASEPOINT2.decompress().unwrap());
-                println!("right:{:?}",u_j.0 + c_j * pk.0);
+                //println!("left:{:?}",&z_j * &RISTRETTO_BASEPOINT2.decompress().unwrap());
+                //println!("right:{:?}",u_j.0 + c_j * pk.0);
             
             (u_j,t_d,StaticSecret(c_j),c_d,StaticSecret(z_j),z_d)
 
@@ -313,7 +331,90 @@ fn test_sok(){
     let sk = StaticSecret::new(&mut OsRng);
     let pk = &sk.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap();
     //let Signature_of_Knowledge = sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0));
-    assert_eq!(false, sok_verify( sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0)),Choice::from(0)));
+    assert_eq!(true, sok_verify( sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0)),Choice::from(0)));
+}
+#[test]
+fn test_network(){
+    let (cpath,kpath) = get_cert_paths();
+    let mut rt = runtime::Builder::new().basic_scheduler().enable_all().build().unwrap();
+    rt.block_on(async move{
+        let coord = Start_Judge(&cpath, &kpath).await;
+    let port = coord.local_addr().port();
+    let (mut client1,_inc1) =  Start_Client(&cpath, "client1".to_string(), port).await;
+    
+
+    let (_client2,mut inc2) = Start_Client(&cpath, "client2".to_string(), port).await;
+
+    client1.new_channel("client2".to_string()).await.unwrap();
+        let (mut s12, mut r21) = client1.new_direct_stream("client2".to_string()).await.unwrap();
+        // receive stream at client2
+        
+        let (_, _, mut s21, mut r12) = inc2.next().await.unwrap();
+
+        let to_send = Bytes::from("ping pong");
+        s12.send(to_send.clone()).await.unwrap();
+        println!("clinet 1 to client 2: {:?}",to_send);
+        let rec = r12.try_next().await?.unwrap().freeze();
+        println!("clinet 2 from client 1: {:?}",rec);
+        s21.send(rec).await.unwrap();
+        
+        let rec = r21.try_next().await?.unwrap();
+        println!("clinet 1 get back from client 2: {:?}",rec);
+        s12.send(to_send.clone()).await.unwrap();
+        let rec = r12.try_next().await?.unwrap().freeze();
+        println!("round 2:{:?}",rec);
+        assert_eq!(to_send, rec);
+        Ok(()) as Result<(), std::io::Error>
+    })
+    .unwrap();
+    
+}
+#[test]
+fn test_sok_network(){
+    let secret_a = StaticSecret::new(&mut OsRng);
+    let A = PublicKey::from(&secret_a);
+
+    let secret_b = StaticSecret::new(&mut OsRng);
+    let B = PublicKey::from(&secret_b);
+
+    let sk = StaticSecret::new(&mut OsRng);
+    let pk = &sk.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap();
+
+    let signature_of_knowledge = sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0));
+    println!("signature of knowledge:{:?}",signature_of_knowledge[0].to_bytes());
+    println!("recovered:{:?}",SigmaOr::from( signature_of_knowledge[0].to_bytes().try_into().unwrap()));
+    let (cpath,kpath) = get_cert_paths();
+    let mut rt = runtime::Builder::new().basic_scheduler().enable_all().build().unwrap();
+    rt.block_on(async move{
+        let coord = Start_Judge(&cpath, &kpath).await;
+        let port = coord.local_addr().port();
+        let (mut client1,_inc1) =  Start_Client(&cpath, "client1".to_string(), port).await;
+    
+
+        let (_client2,mut inc2) = Start_Client(&cpath, "client2".to_string(), port).await;
+
+        client1.new_channel("client2".to_string()).await.unwrap();
+        let (mut s12, mut r21) = client1.new_direct_stream("client2".to_string()).await.unwrap();
+        // receive stream at client2
+        
+        let (_, _, mut s21, mut r12) = inc2.next().await.unwrap();
+
+        let to_send =Bytes::copy_from_slice(&signature_of_knowledge[0].to_bytes());
+        s12.send(to_send.clone()).await.unwrap();
+        println!("clinet 1 to client 2: {:?}",to_send);
+        let to_send = Bytes::copy_from_slice(&signature_of_knowledge[1].to_bytes());
+        println!("clinet 1 to client 2: {:?}",to_send);
+        s12.send(to_send.clone()).await.unwrap();
+
+        let rec = r12.try_next().await?.unwrap().freeze();
+        let rec1 =r12.try_next().await?.unwrap().freeze();
+        let sok_recv = vec![rec.bytes(),rec1.bytes()];
+        println!("clinet 2 from client 1: {:?}",sok_recv);
+        
+        assert_eq!(1, 2);
+        Ok(()) as Result<(), std::io::Error>
+    })
+    .unwrap();
 }
 
 

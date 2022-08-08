@@ -7,7 +7,7 @@ use curve25519_dalek::edwards::{EdwardsPoint,CompressedEdwardsY};
 use curve25519_dalek::ristretto::{RistrettoPoint,CompressedRistretto};
 use curve25519_dalek::scalar::Scalar;
 
-
+use std::{path::PathBuf};
 
 use rand_core::CryptoRng;
 use rand_core::RngCore;
@@ -150,4 +150,24 @@ impl SharedSecret {
     }
   
     
+}
+pub fn get_cert_paths() -> (PathBuf, PathBuf) {
+    let dir = directories_next::ProjectDirs::from("am.kwant", "conec", "conec-tests").unwrap();
+    let path = dir.data_local_dir();
+    let cert_path = path.join("cert.der");
+    let key_path = path.join("key.der");
+    match std::fs::read(&cert_path) {
+        Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => {
+            println!("generating self-signed cert");
+            let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+            let key = cert.serialize_private_key_der();
+            let cert = cert.serialize_der().unwrap();
+            std::fs::create_dir_all(&path).unwrap();
+            std::fs::write(&cert_path, &cert).unwrap();
+            std::fs::write(&key_path, &key).unwrap();
+        }
+        Ok(_) => (),
+        _ => panic!("could not stat file {:?}", cert_path),
+    }
+    (cert_path, key_path)
 }
