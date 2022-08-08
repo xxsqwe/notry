@@ -26,5 +26,6 @@ tokio = { version = "0.2", features = ["rt-core", "time"] }
 tokio-serde = { version = "0.6", features = ["bincode"] }
 tokio-util = { version = "0.3", features = ["codec"] }
 bytes = "0.5"
+
 [dependencies.x25519-dalek]
 version = "1"

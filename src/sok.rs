@@ -83,8 +83,8 @@ impl SigmaOr{
         .collect::<Vec<u8>>()
     }
 }
-impl From<[u8;256]> for SigmaOr {
-    fn from(bytes: [u8;256]) -> Self {
+impl From<&[u8;256]> for SigmaOr {
+    fn from(bytes: &[u8;256]) -> Self {
         SigmaOr { 
             t_0:PublicKey( CompressedRistretto(bytes[0..32].try_into().unwrap()).decompress().unwrap()), 
             c_0:StaticSecret( Scalar::from_bits(bytes[32..64].try_into().unwrap())), 
@@ -382,7 +382,7 @@ fn test_sok_network(){
 
     let signature_of_knowledge = sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0));
     println!("signature of knowledge:{:?}",signature_of_knowledge[0].to_bytes());
-    println!("recovered:{:?}",SigmaOr::from( signature_of_knowledge[0].to_bytes().try_into().unwrap()));
+    println!("recovered:{:?}",SigmaOr::from(& signature_of_knowledge[0].to_bytes().try_into().unwrap()).to_bytes());
     let (cpath,kpath) = get_cert_paths();
     let mut rt = runtime::Builder::new().basic_scheduler().enable_all().build().unwrap();
     rt.block_on(async move{
@@ -408,10 +408,10 @@ fn test_sok_network(){
 
         let rec = r12.try_next().await?.unwrap().freeze();
         let rec1 =r12.try_next().await?.unwrap().freeze();
-        let sok_recv = vec![rec.bytes(),rec1.bytes()];
+        let mut sok_recv = vec![SigmaOr::from(&rec.to_vec().try_into().unwrap()),SigmaOr::from(&rec1.to_vec().try_into().unwrap())];
         println!("clinet 2 from client 1: {:?}",sok_recv);
         
-        assert_eq!(1, 2);
+        assert_eq!(true,sok_verify(sok_recv, Choice::from(0)));
         Ok(()) as Result<(), std::io::Error>
     })
     .unwrap();
