@@ -5,8 +5,11 @@ use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::constants::{RISTRETTO_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_TABLE};
 
 use curve25519_dalek::ristretto::{RistrettoPoint,CompressedRistretto};
-
+#[allow(unused_imports)]
+use futures::channel::oneshot::channel;
+#[allow(unused_imports)]
 use sha2::{Sha256,Sha512};
+#[allow(unused_imports)]
 use hkdf::Hkdf;
 //use core::ops::{Add, Sub};
 #[allow(unused_imports)]
@@ -14,6 +17,7 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce // Or `Aes128Gcm`
 };
+#[allow(unused_imports)]
 use crate::utils::{hash,PublicKey,StaticSecret,xor,RISTRETTO_BASEPOINT2,get_cert_paths};
 
 use subtle::Choice;
@@ -128,7 +132,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
                                             .chain(&u_j.to_bytes())
                                             .chain(message.as_bytes())
                                             .cloned()               //H(g,pubkey,u,m)
-                                            .collect::<Vec<u8>>()));// Array Catenation
+                                            .collect::<Vec<u8>>())[..32].try_into().unwrap());// Array Catenation
         let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors
         let z_j = t_j.0 + c_j * secret.0; // trick. from Vec to array
     
@@ -148,7 +152,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
                                             .chain(&u_j.to_bytes())
                                             .chain(message.as_bytes())
                                             .cloned()               //H(g,pubkey,u,m)
-                                            .collect::<Vec<u8>>()));// Array Catenation
+                                            .collect::<Vec<u8>>())[..32].try_into().unwrap());// Array Catenation
         let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors, trick. from Vec to array
         let z_j = t_j.0+c_j*secret.0; //
     
@@ -181,7 +185,7 @@ pub fn sok(A: PublicKey, B:PublicKey, pk: PublicKey,  secret: StaticSecret, sk: 
                                             .chain(&u_j.to_bytes())
                                             .chain(message.as_bytes())
                                             .cloned()               //H(g,pubkey,u,m)
-                                            .collect::<Vec<u8>>()));
+                                            .collect::<Vec<u8>>())[..32].try_into().unwrap());
             let c_j: Scalar = Scalar::from_bits(FS.to_bytes().iter().zip(c_d.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>().as_slice().try_into().unwrap()); // xor corresponding bytes in two Vectors
             //println!("t={:?}\n c={:?}\n x = {:?}",t_j,c_j,sk);
             
@@ -224,7 +228,7 @@ pub fn sok_verify(mut proof: Vec<SigmaOr>, j: Choice) -> bool{
                                             .chain(&proof[0].t_0.to_bytes())
                                             .chain(message1.as_bytes())
                                             .cloned()               //H(g,pubkey,u,m)
-                                            .collect::<Vec<u8>>()))
+                                            .collect::<Vec<u8>>())[..32].try_into().unwrap())
         }
         else{
             Scalar::from_bits(hash(&RISTRETTO_BASEPOINT_COMPRESSED.to_bytes().iter()
@@ -232,7 +236,7 @@ pub fn sok_verify(mut proof: Vec<SigmaOr>, j: Choice) -> bool{
                                             .chain(&proof[0].t_1.to_bytes())
                                             .chain(message1.as_bytes())
                                             .cloned()               //H(g,pubkey,u,m)
-                                            .collect::<Vec<u8>>()))
+                                            .collect::<Vec<u8>>())[..32].try_into().unwrap())
         };
     proof[0].c_1 = StaticSecret(Scalar::from_bits( xor(FS.to_bytes(),proof[0].c_0.to_bytes())));
     let FS2 = Scalar::from_bits(hash(&RISTRETTO_BASEPOINT2.to_bytes().iter()
@@ -240,7 +244,7 @@ pub fn sok_verify(mut proof: Vec<SigmaOr>, j: Choice) -> bool{
                                 .chain(&proof[1].t_0.to_bytes())
                                 .chain(message2.as_bytes())
                                 .cloned()               //H(g,pubkey,u,m)
-                                .collect::<Vec<u8>>()));
+                                .collect::<Vec<u8>>())[..32].try_into().unwrap());
     proof[1].c_1 = StaticSecret(Scalar::from_bits( xor(FS2.to_bytes(), proof[1].c_0.to_bytes())));
 
     if proof[0].verify(false) {
@@ -314,7 +318,7 @@ fn test_hash(){
     let rho=hash(&okm.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());
     println!("rho:{:?}",rho.as_slice());
     println!("output key material:{:?}",rho.iter().zip(alice_secret.0.to_bytes()).map(|(x,y)| x^y).collect::<Vec<u8>>());
-    println!("xor:{:?}",xor(rho,alice_secret.to_bytes()));
+    println!("xor:{:?}",xor(rho[..32].try_into().unwrap(),alice_secret.to_bytes()));
     
     let _key = Aes256Gcm::generate_key(&mut aes_gcm::aead::OsRng);
     let cipher = Aes256Gcm::new(GenericArray::from_slice(& okm));
@@ -401,6 +405,7 @@ fn test_sok_network(){
 
     let sk = StaticSecret::new(&mut OsRng);
     let pk = &sk.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap();
+    
 
     let signature_of_knowledge = sok(A,B,PublicKey(pk),secret_a,sk,Choice::from(0));
     //println!("signature of knowledge:{:?}",signature_of_knowledge[0].to_bytes());
@@ -424,10 +429,10 @@ fn test_sok_network(){
         println!("P={:?}",P.compress().to_bytes());
         let to_send =Bytes::copy_from_slice(&signature_of_knowledge[0].to_bytes());
         //println!("clinet 1 to client 2: {:?}",to_send);
-        let mut channel=Comm_Channel::new(client1, "client2".to_string(), inc2).await;
-        channel.send(to_send,Choice::from(0)).await;
+        let  (mut channel1,mut channel2)=Comm_Channel::new(client1, "client2".to_string(), inc2).await;
+        channel1.send(to_send,Choice::from(0)).await;
         
-        let sok_recv= channel.recv(Choice::from(1)).await;
+        let sok_recv= channel1.recv(Choice::from(1)).await;
         
         /*s12.send(to_send.clone()).await.unwrap();
         

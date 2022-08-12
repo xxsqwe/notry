@@ -1,9 +1,13 @@
 use std::fmt::Debug;
+use std::io::Error;
 
 use bytes::Bytes;
-use sha2::{Sha256,Digest};
+use sha2::{Sha256,Digest, Sha512};
+#[allow(unused_imports)]
 use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_TABLE};
+#[allow(unused_imports)]
 use curve25519_dalek::montgomery::MontgomeryPoint;
+#[allow(unused_imports)]
 use curve25519_dalek::edwards::{EdwardsPoint,CompressedEdwardsY};
 use curve25519_dalek::ristretto::{RistrettoPoint,CompressedRistretto};
 use curve25519_dalek::scalar::Scalar;
@@ -32,12 +36,12 @@ pub const RISTRETTO_BASEPOINT_RANDOM: CompressedRistretto = CompressedRistretto(
      0xba,0xf7,0xdf,0x9d,0x4d,0x26,0x06,0xea,
      0xf3,0x00,0x68,0x19,0x1c,0x0a,0x5b,0x16]
 );
-pub fn hash( msg: &[u8] ) -> [u8;32] {
+pub fn hash( msg: &[u8] ) -> [u8;64] {
 
-    let mut hasher = Sha256::new();
+    let mut hasher = Sha512::new();
     hasher.update(msg);
     let res = hasher.finalize();
-    let mut output = [0u8; 32];
+    let mut output = [0u8; 64];
     output.copy_from_slice(res.as_slice());
    // println!("hash:{:?}",output);
     output
@@ -52,10 +56,13 @@ pub struct PublicKey(pub(crate) RistrettoPoint);
 
 impl From<&[u8]> for PublicKey{
 
-    /// Given a byte array, construct a x25519 `PublicKey`.
+    /// Given a byte array, construct a  `PublicKey`.
   
     fn from(bytes: &[u8]) -> PublicKey{
-        PublicKey(CompressedRistretto::from_slice(bytes).decompress().unwrap())
+        let tmp = CompressedRistretto::from_slice(bytes);
+        PublicKey(tmp.decompress().unwrap())
+        
+
 
     }
 }

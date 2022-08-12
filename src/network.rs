@@ -22,19 +22,19 @@ pub struct Comm_Channel {
     }
 #[allow(unused_mut)]
 impl Comm_Channel {
-    pub async fn  send(&mut self,message: Bytes, which:Choice){
+    pub async fn  send(&mut self,message: Bytes, _which:Choice){
         //0 for alice, 1 for bob
         
             self.s12.send(message).await.unwrap();
         
     }
-    pub async fn new(mut source:Client, dest:String,mut des_inc:IncomingStreams)->Self{
+    pub async fn new(mut source:Client, dest:String,mut des_inc:IncomingStreams)->(Self,Self){
         source.new_channel(dest.clone()).await.unwrap();
         let (mut s12,mut r21) = source.new_direct_stream(dest.clone()).await.unwrap();
         let (_,_, mut s21, mut r12) = des_inc.next().await.unwrap();
-        Comm_Channel{s12,r12}
+        (Comm_Channel{s12,r21:r12},Comm_Channel{s12:s21,r21})
     }
-    pub async fn  recv(&mut self, which:Choice) -> Bytes{
+    pub async fn recv(&mut self, _which:Choice) -> Bytes{
         //0 for alice recv
         
             self.r21.try_next().await.unwrap().unwrap().freeze()
@@ -57,8 +57,8 @@ pub async fn Start_Client(cert_path:&Path ,name: String, port:u16) -> (Client, I
         Client::new(client_cfg.clone()).await.unwrap()
 }
 #[allow(unused_mut,non_snake_case)]
-pub async fn Send(message: Bytes,mut source:Client, dest:String,mut inc:IncomingStreams) -> 
-Comm_Channel{
+pub async fn Send(message: Bytes,mut source:Client, dest:String,mut inc:IncomingStreams)  
+{
     //source.new_channel(dest.clone()).await.unwrap();
     let (mut s12,mut r21) = source.new_stream(dest.clone()).await.unwrap();
     let (_,_, mut s21, mut r12) = inc.next().await.unwrap();
@@ -66,7 +66,7 @@ Comm_Channel{
         s12.send(message.clone()).await.unwrap();
     
     
-        Comm_Channel{s12,r21,s21,r12}
+        
 }
 #[allow(non_snake_case)]
 

@@ -1,9 +1,10 @@
 #[allow(unused_imports)]
 use std::path::Path;
-use std::thread;
 
 use bytes::Bytes;
-use curve25519_dalek::ristretto::CompressedRistretto;
+use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
+use curve25519_dalek::scalar::Scalar;
+use futures::{StreamExt, SinkExt, TryStreamExt};
 use hkdf::Hkdf;
 use sha2::Sha256;
 
@@ -14,7 +15,6 @@ use crate::sok::{sok,sok_verify,SigmaOr};
 use tokio::{runtime, time};
 use rand::rngs::OsRng;
 use subtle::Choice;
-use futures::executor::block_on;
 use crate::network::{Start_Client, Comm_Channel,Start_Judge};
 /// Role 0 for Alice, 1 for Bob
 #[allow(non_snake_case,unused_variables)]
@@ -61,8 +61,8 @@ pub async fn Alice_key_exchange( secret:StaticSecret, Sk:StaticSecret, Alice_Pk:
             let hf = Hkdf::<Sha256>::new(None,&KeyMatereial);
             hf.expand(&[] as &[u8;0],  &mut k_sess_A).expect("HKDF expansion Failed"); //KDF(A || B || σ A || σ B || K)
             let rho_A = hash(&k_sess_A.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());//H(k_sess|| “avow”)
-            let _alpha = xor(rho_A,Gamma.0.to_bytes());
-            PublicKey(CompressedRistretto(rho_A).decompress().unwrap())
+            let _alpha = xor(rho_A[..32].try_into().unwrap(),Gamma.0.to_bytes());
+            PublicKey(CompressedRistretto(rho_A[..32].try_into().unwrap()).decompress().unwrap())
         }
 #[allow(non_snake_case)]
 pub async fn Bob_key_exchange(secret:StaticSecret, Sk:StaticSecret, _Alice_Pk:PublicKey, Bob_Pk: PublicKey, mut A2B_bi:Comm_Channel) -> PublicKey{
@@ -100,14 +100,19 @@ pub async fn Bob_key_exchange(secret:StaticSecret, Sk:StaticSecret, _Alice_Pk:Pu
         let hf = Hkdf::<Sha256>::new(None,&KeyMatereial);
         hf.expand(&[] as &[u8;0],  &mut k_sess_B).expect("HKDF expansion failed"); //KDF(A || B || σ A || σ B || K)
         let rho_B = hash(&k_sess_B.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());//H(k_sess|| “avow”)
-        let _beta = xor(rho_B,Delta.0.to_bytes());
-        PublicKey(CompressedRistretto(rho_B).decompress().unwrap())
+        let _beta = xor(rho_B[..32].try_into().unwrap(),Delta.0.to_bytes());
+        PublicKey(CompressedRistretto(rho_B[..32].try_into().unwrap()).decompress().unwrap())
         
 
 }
-        
+#[allow(non_snake_case,unused_variables,unused_mut)]
 #[test]
 fn test_key_exchange(){
+    let mut rt = runtime::Builder::new().basic_scheduler().enable_all().build().unwrap();
+    rt.block_on(async move{
+    key_exchange().await;
+    })
+    /*
     let secret_a = StaticSecret::new(&mut OsRng);
     let A = PublicKey::from(&secret_a);
 
@@ -128,17 +133,141 @@ fn test_key_exchange(){
         let port = Judge.local_addr().port();
         let (mut Alice, _incAlice) = Start_Client(&cpath, "Alice".to_string(), port).await;
         let (Bob,mut incBob) = Start_Client(&cpath, "Bob".to_string(), port).await;
-        let mut chal = Comm_Channel::new(Alice,"Bob".to_string(),incBob).await;
+        let (mut chal1,mut chal2) = Comm_Channel::new(Alice,"Bob".to_string(),incBob).await;
 
-        let share_key = Alice_key_exchange(secret_a, sk_a, PublicKey( pk_a), PublicKey( pk_b), chal).await;
+        let share_key = Alice_key_exchange(secret_a, sk_a, PublicKey( pk_a), PublicKey( pk_b), chal1).await;
 
-        let alice_kex = thread::spawn(move| |{
-        block_on( Bob_key_exchange(secret_b, sk_b, PublicKey( pk_a), PublicKey( pk_b), chal));
+        let Bob_kex = thread::spawn(move| |{
+        block_on( Bob_key_exchange(secret_b, sk_b, PublicKey( pk_a), PublicKey( pk_b), chal2));
     }
+        
     );
+    Bob_kex.join().expect("bob kex failed");
 
 
-
-})
+}) */
 }
+#[allow(non_snake_case)]
+pub async fn key_exchange(){
+    let secret_a = StaticSecret::new(&mut OsRng);
+    let A = PublicKey::from(&secret_a);
 
+    let secret_b = StaticSecret::new(&mut OsRng);
+    let B = PublicKey::from(&secret_b);
+
+    let sk_a = StaticSecret::new(&mut OsRng);
+    let pk_a = &sk_a.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap();
+
+    let sk_b = StaticSecret::new(&mut OsRng);
+    let pk_b = &sk_b.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap();
+
+    let (cpath,kpath) = get_cert_paths();
+    let Judge = Start_Judge(&cpath, &kpath).await;
+    let port = Judge.local_addr().port();
+    
+    let (mut Alice, _incAlice) = Start_Client(&cpath, "Alice".to_string(), port).await;
+    let (Bob,mut IncBOB) =Start_Client(&cpath, "Bob".to_string(), port).await;
+
+    Alice.new_channel("Bob".to_string()).await.unwrap();
+
+    let (mut s12,mut r21) = Alice.new_direct_stream("Bob".to_string()).await.unwrap();
+    let (_,_,mut s21, mut r12) = IncBOB.next().await.unwrap();
+
+    // Alice sends A to Bob
+    s12.send(Bytes::copy_from_slice(&A.to_bytes())).await.unwrap();
+    
+    // Bob Recvs A and prepare SoK
+    let Recv_A =PublicKey::from( r12.try_next().await.unwrap().unwrap().freeze());
+    let SoK_B = sok(Recv_A,B, PublicKey( pk_b), secret_b.clone(),sk_b,Choice::from(1));
+    // Bob sends SoK_B and B to Alice
+    //Alice recvs SoKB, unwraps it, then verify it
+    s21.send(Bytes::copy_from_slice(&SoK_B[0].to_bytes())).await.unwrap();
+    let recv_SoKB_0 = r21.try_next().await.unwrap().unwrap().freeze();
+
+    s21.send(Bytes::copy_from_slice(&SoK_B[1].to_bytes())).await.unwrap();
+    let recv_SoKB_1 = r21.try_next().await.unwrap().unwrap().freeze();
+
+    s21.send(Bytes::copy_from_slice(&B.to_bytes())).await.unwrap();
+
+    
+    
+    let recv_SoKB = vec![SigmaOr::from( &recv_SoKB_0.to_vec().try_into().unwrap()),
+                                       SigmaOr::from( &recv_SoKB_1.to_vec().try_into().unwrap())];
+    
+    assert_eq!(true, sok_verify(recv_SoKB, Choice::from(1)));
+
+    //Alice gets B and compute her sok_A, then sends her sok to Bob
+    let Recv_B = PublicKey::from( r21.try_next().await.unwrap().unwrap().freeze());
+    let SoK_A = sok(A,B,PublicKey( pk_a),secret_a.clone(),sk_a,Choice::from(0));
+
+    //Bob recvs SoKA, unwraps it, then verify
+    s12.send(Bytes::copy_from_slice(&SoK_A[0].to_bytes())).await.unwrap();
+    let recv_SoKA_0 = r12.try_next().await.unwrap().unwrap().freeze();
+
+    s12.send(Bytes::copy_from_slice(&SoK_A[1].to_bytes())).await.unwrap();
+    let recv_SoKA_1 = r12.try_next().await.unwrap().unwrap().freeze();
+    
+    let recv_SoKA = vec![SigmaOr::from( &recv_SoKA_0.to_vec().try_into().unwrap()),
+                                       SigmaOr::from( &recv_SoKA_1.to_vec().try_into().unwrap())];
+
+    assert_eq!(true,sok_verify(recv_SoKA, Choice::from(0)));
+    
+    // Alice gets her DH key
+    let Alice_K = Recv_B.0 * (secret_a.clone()).0;
+
+    // Bob gets his DH key
+    let Bob_K = Recv_A.0 * secret_b.clone().0;
+    
+    assert_eq!(Alice_K, Bob_K);
+    
+    let (k_sess_alice,alpha) =
+    {
+        // Alice run HKDF to produce session key k_sess
+        let KeyMatereial = A.to_bytes().iter()
+        .chain(&Recv_B.to_bytes())
+        .chain(&SoK_A[0].to_bytes())
+        .chain(&SoK_A[1].to_bytes())
+        .chain(&recv_SoKB_0.to_vec())
+        .chain(&recv_SoKB_1.to_vec())
+        .chain(&Alice_K.compress().to_bytes())
+        .cloned()
+        .collect::<Vec<_>>();
+        let mut k_sess_A = [0u8;32];
+        let hf = Hkdf::<Sha256>::new(None,&KeyMatereial);
+        hf.expand(&[] as &[u8;0],  &mut k_sess_A).expect("HKDF expansion Failed"); //KDF(A || B || σ A || σ B || K)
+        let rho_A = hash(&mut k_sess_A.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());//H(k_sess|| “avow”)
+        let alpha = xor(rho_A[..32].try_into().unwrap(),secret_a.clone().0.to_bytes());
+        //println!("k_sess_alice:{:?}",PublicKey::from(rho_A.to_vec().as_slice()));
+        (PublicKey(RistrettoPoint::from_uniform_bytes(&rho_A)), alpha)
+    };
+    
+    let (k_sess_bob,beta) =
+    {
+        // Alice run HKDF to produce session key k_sess
+        let KeyMatereial = Recv_A.to_bytes().iter()
+        .chain(&B.to_bytes())
+        .chain(&recv_SoKA_0.to_vec())
+        .chain(&recv_SoKA_1.to_vec())
+        .chain(&SoK_B[0].to_bytes())
+        .chain(&SoK_B[1].to_bytes())
+        .chain(&Bob_K.compress().to_bytes())
+        .cloned()
+        .collect::<Vec<_>>();
+        let mut k_sess_B = [0u8;32];
+        let hf = Hkdf::<Sha256>::new(None,&KeyMatereial);
+        hf.expand(&[] as &[u8;0],  &mut k_sess_B).expect("HKDF expansion Failed"); //KDF(A || B || σ A || σ B || K)
+        let rho_B = hash(&mut k_sess_B.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());//H(k_sess|| “avow”)
+        let beta = xor(rho_B[..32].try_into().unwrap(),secret_b.clone().0.to_bytes());
+        println!("rho_A:{:?}",rho_B);
+
+        (PublicKey(RistrettoPoint::from_uniform_bytes(&rho_B)), beta)
+    };
+    assert_eq!(k_sess_alice,k_sess_bob);
+    
+    
+    
+
+    
+    
+
+}
