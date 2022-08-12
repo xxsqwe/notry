@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use bytes::Bytes;
 use sha2::{Sha256,Digest};
 use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_TABLE};
 use curve25519_dalek::montgomery::MontgomeryPoint;
@@ -24,6 +25,13 @@ pub const RISTRETTO_BASEPOINT2: CompressedRistretto = CompressedRistretto(
      0x49 ,0x4e ,0x43 ,0x78 ,0xd5 ,0x4e ,0xe0 ,0x8c ,
      0x3e ,0x6d ,0xe6 ,0x9d ,0x49 ,0xaa ,0x73 ,0xe7 ,
      0x85 ,0x04 ,0x13 ,0x1b ,0xcb ,0x33 ,0x50 ,0x6d]);
+
+pub const RISTRETTO_BASEPOINT_RANDOM: CompressedRistretto = CompressedRistretto(
+    [0xda,0xc7,0xdf,0xb3,0x0e,0xc0,0x49,0xa2,
+     0x66,0x98,0x60,0xea,0x06,0xde,0x15,0x2c,
+     0xba,0xf7,0xdf,0x9d,0x4d,0x26,0x06,0xea,
+     0xf3,0x00,0x68,0x19,0x1c,0x0a,0x5b,0x16]
+);
 pub fn hash( msg: &[u8] ) -> [u8;32] {
 
     let mut hasher = Sha256::new();
@@ -54,6 +62,11 @@ impl From<&[u8]> for PublicKey{
 impl PublicKey{
     pub fn to_bytes(&self) -> [u8;32]{
         self.0.compress().to_bytes()
+    }
+}
+impl From<Bytes> for PublicKey{
+    fn from(bytes:Bytes) -> PublicKey{
+        PublicKey::from(bytes.to_vec().as_slice())
     }
 }
 
