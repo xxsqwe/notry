@@ -6,6 +6,7 @@ use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use futures::{StreamExt, SinkExt, TryStreamExt};
 use hkdf::Hkdf;
+use rand::distributions::Gamma;
 use sha2::Sha256;
 
 use crate::utils::{PublicKey,StaticSecret,xor,hash,get_cert_paths, RISTRETTO_BASEPOINT2};
@@ -16,7 +17,7 @@ use tokio::{runtime, time};
 use rand::rngs::OsRng;
 use subtle::Choice;
 use crate::network::{Start_Client, Comm_Channel,Start_Judge};
-/// Role 0 for Alice, 1 for Bob
+
 #[allow(non_snake_case,unused_variables)]
 pub async fn Alice_key_exchange( secret:StaticSecret, Sk:StaticSecret, Alice_Pk:PublicKey, Bob_Pk: PublicKey, mut A2B_bi:Comm_Channel) -> PublicKey{
     
@@ -148,7 +149,12 @@ fn test_key_exchange(){
 }) */
 }
 #[allow(non_snake_case)]
-pub async fn key_exchange(){
+pub async fn key_exchange() -> 
+    (PublicKey, PublicKey,PublicKey,
+     StaticSecret,StaticSecret,
+     PublicKey,
+    Scalar,Scalar,
+    ){
     let secret_a = StaticSecret::new(&mut OsRng);
     let A = PublicKey::from(&secret_a);
 
@@ -178,7 +184,7 @@ pub async fn key_exchange(){
     
     // Bob Recvs A and prepare SoK
     let Recv_A =PublicKey::from( r12.try_next().await.unwrap().unwrap().freeze());
-    let SoK_B = sok(Recv_A,B, PublicKey( pk_b), secret_b.clone(),sk_b,Choice::from(1));
+    let SoK_B = sok(Recv_A,B, PublicKey( pk_b), secret_b.clone(),sk_b.clone(),Choice::from(1));
     // Bob sends SoK_B and B to Alice
     //Alice recvs SoKB, unwraps it, then verify it
     s21.send(Bytes::copy_from_slice(&SoK_B[0].to_bytes())).await.unwrap();
@@ -198,7 +204,7 @@ pub async fn key_exchange(){
 
     //Alice gets B and compute her sok_A, then sends her sok to Bob
     let Recv_B = PublicKey::from( r21.try_next().await.unwrap().unwrap().freeze());
-    let SoK_A = sok(A,B,PublicKey( pk_a),secret_a.clone(),sk_a,Choice::from(0));
+    let SoK_A = sok(A,B,PublicKey( pk_a),secret_a.clone(),sk_a.clone(),Choice::from(0));
 
     //Bob recvs SoKA, unwraps it, then verify
     s12.send(Bytes::copy_from_slice(&SoK_A[0].to_bytes())).await.unwrap();
@@ -236,7 +242,7 @@ pub async fn key_exchange(){
         let hf = Hkdf::<Sha256>::new(None,&KeyMatereial);
         hf.expand(&[] as &[u8;0],  &mut k_sess_A).expect("HKDF expansion Failed"); //KDF(A || B || σ A || σ B || K)
         let rho_A = hash(&mut k_sess_A.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());//H(k_sess|| “avow”)
-        let alpha = xor(rho_A[..32].try_into().unwrap(),secret_a.clone().0.to_bytes());
+        let alpha =Scalar::from_bits( rho_A[..32].try_into().unwrap()) + Scalar::from_bits( secret_a.clone().0.to_bytes());
         //println!("k_sess_alice:{:?}",PublicKey::from(rho_A.to_vec().as_slice()));
         (PublicKey(RistrettoPoint::from_uniform_bytes(&rho_A)), alpha)
     };
@@ -257,13 +263,16 @@ pub async fn key_exchange(){
         let hf = Hkdf::<Sha256>::new(None,&KeyMatereial);
         hf.expand(&[] as &[u8;0],  &mut k_sess_B).expect("HKDF expansion Failed"); //KDF(A || B || σ A || σ B || K)
         let rho_B = hash(&mut k_sess_B.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());//H(k_sess|| “avow”)
-        let beta = xor(rho_B[..32].try_into().unwrap(),secret_b.clone().0.to_bytes());
-        println!("rho_A:{:?}",rho_B);
+        let beta = Scalar::from_bits(secret_b.clone().0.to_bytes()) - Scalar::from_bits( rho_B[..32].try_into().unwrap());
+        //println!("rho_A:{:?}",rho_B);
 
         (PublicKey(RistrettoPoint::from_uniform_bytes(&rho_B)), beta)
     };
     assert_eq!(k_sess_alice,k_sess_bob);
-    
+    assert_eq!(alpha+beta , secret_a.0+secret_b.0);
+    //println!("alpha+beta:{:?}",alpha+beta );
+    //println!("alpha+beta:{:?}",secret_a.0+secret_b.0);
+    (PublicKey(pk_a),PublicKey(pk_b),PublicKey(A.0+B.0),sk_a, sk_b, k_sess_alice,alpha,beta)
     
     
 

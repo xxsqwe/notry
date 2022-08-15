@@ -1,3 +1,6 @@
+
+#[allow(unused_imports)]
+use crate::key_exchange::key_exchange;
 use crate::utils::{PublicKey,StaticSecret,RISTRETTO_BASEPOINT2,RISTRETTO_BASEPOINT_RANDOM,xor, hash,get_cert_paths};
 use crate::network::{Start_Client,Start_Judge};
 //use crate::key_exchange::key_exchange;
@@ -10,26 +13,51 @@ use bytes::Bytes;
 use curve25519_dalek::constants::{RISTRETTO_BASEPOINT_TABLE};
 
 use curve25519_dalek::ristretto::{RistrettoPoint, CompressedRistretto};
-use curve25519_dalek::scalar::{Scalar};
+use curve25519_dalek::scalar::{Scalar, self};
 use rand::rngs::OsRng;
-
+#[allow(unused_imports)]
+use sha2::{Sha512,Digest};
+#[allow(unused_imports)]
+use sha2::digest::Update;
+#[allow(unused_imports)]
 use tokio::{runtime, time};
  
+
+use futures::{StreamExt, SinkExt, TryStreamExt};
+
 #[allow(non_camel_case_types,dead_code,non_snake_case)]
 #[derive(Debug)]
 pub struct avow_proof{
-    c_AB : StaticSecret,
+    c_AB : [u8;32],//Scalar,
     z_AB : Scalar,
     c_J  : Scalar,
     z_j  : Scalar,
+    AB   : RistrettoPoint,
+    // r_A, r_B just for test
+    //r_A  : Scalar,
+    //r_B  : Scalar
 }
-use futures::{StreamExt, SinkExt, TryStreamExt};
-
+impl avow_proof {
+    fn new() -> Self{
+        avow_proof { 
+            c_AB: [0u8;32],//Scalar::zero(),
+            z_AB: Scalar::zero(), 
+            c_J:  Scalar::zero(), 
+            z_j:  Scalar::zero(),
+            AB  : RistrettoPoint::default(),
+            //r_A  : Scalar::zero(),
+            //r_B  : Scalar::zero()
+            }
+    }
+    
+}
 /// role 1 for Bob and 0 for Alice
 /// 
 /// 
 #[allow(unused_variables,non_snake_case,unused_mut)]
-pub async fn avow(alice:PublicKey, bob: PublicKey, judge: PublicKey, sk_a: StaticSecret, sk_b: StaticSecret, secret_a: StaticSecret, secret_b:StaticSecret, role:bool, k_session:[u8;32]){
+pub async fn avow(alice:PublicKey, bob: PublicKey, judge: PublicKey, sk_a: StaticSecret, sk_b: StaticSecret, 
+                    secret_a: Scalar, secret_b:Scalar, 
+                    role:bool, k_session:[u8;32])->avow_proof{
 
 
         let c_A = StaticSecret::new(&mut OsRng);
@@ -51,6 +79,7 @@ pub async fn avow(alice:PublicKey, bob: PublicKey, judge: PublicKey, sk_a: Stati
 
         let (mut s12,mut r21) = Alice.new_direct_stream("Bob".to_string()).await.unwrap();
         let (_,_,mut s21, mut r12) = IncBob.next().await.unwrap();
+
         // Alice sends E_A and R_A to Bob
         s12.send(Bytes::copy_from_slice( &E_A.compress().to_bytes())).await.unwrap();
         s12.send(Bytes::copy_from_slice(&R_A.compress().to_bytes())).await.unwrap();
@@ -92,35 +121,78 @@ pub async fn avow(alice:PublicKey, bob: PublicKey, judge: PublicKey, sk_a: Stati
         assert_eq!(Recv_c_A.0 , c_A.0);
         assert_eq!(Recv_z_A.0 , z_A.0);
         assert_eq!(Recv_s_A.0 , s_A.0);
-        let c_AB = prove_avow(c_A, c_B, z_A, z_B, R_A, R_B, judge);
+        let mut avow_prof = prove_avow(c_A, c_B, z_A, z_B, R_A, R_B, judge);
 
-        let z_alpha = c_AB.0 * secret_a.0 + r_A.0;
-        let z_beta = c_AB.0 * secret_b.0 + r_B.0;
-        let a_AB = z_alpha + z_beta;
+        let z_alpha = Scalar::from_bits( avow_prof.c_AB) * secret_a + r_A.0;
+        let z_beta = Scalar::from_bits( avow_prof.c_AB) * secret_b + r_B.0;
+        let z_AB = z_alpha + z_beta;
+        avow_prof.z_AB = z_AB;
+        //assert_eq!(z_AB,avow_prof.c_AB * (unmasked_a+unmasked_b)+r_A.0+r_B.0);
+        //println!("z_AB:{:?}",z_AB);
+        //println!("right:{:?}", avow_prof.c_AB * (unmasked_a+unmasked_b)+r_A.0+r_B.0);
+        avow_prof
 
                                                                      
 }
 /// return c_{AB}
 #[allow(unused_variables,non_snake_case)]
 
-fn prove_avow(c_A:StaticSecret,c_B:StaticSecret,z_A:StaticSecret,z_B:StaticSecret, R_A: RistrettoPoint, R_B: RistrettoPoint, PK_J : PublicKey)-> StaticSecret{
+fn prove_avow(c_A:StaticSecret,c_B:StaticSecret,z_A:StaticSecret,z_B:StaticSecret, R_A: RistrettoPoint, R_B: RistrettoPoint, PK_J : PublicKey)-> avow_proof{
     let c_J = Scalar::from_bits( xor(c_A.to_bytes(),c_B.to_bytes()));
     let z_J = z_A.0 + z_B.0;
     let R_J = z_J * RISTRETTO_BASEPOINT2.decompress().unwrap() - c_J * PK_J.0;
+    
     let R_AB = R_A + R_B;
+    
     let c = hash(&[R_AB.compress().to_bytes(),R_J.compress().to_bytes()].concat());
-    StaticSecret( Scalar::from_bits( xor(c[..32].try_into().unwrap(),c_J.to_bytes())))
+    let c_AB =  xor(c[..32].try_into().unwrap(),c_J.to_bytes());
+    println!("c_AB={:?}",c_AB);
+    println!("c_A xor c_B = {:?}",xor(c[..32].try_into().unwrap(),c_J.to_bytes()));
+    assert_eq!(1,1);
+    let mut avow_prof = avow_proof::new();
+    avow_prof.c_J = c_J;
+    avow_prof.z_j = z_J;
+    avow_prof.c_AB= c_AB;
+    avow_prof
+
+
 }
 #[allow(unused_variables,non_snake_case)]
 
-pub fn Judge(pk_J: PublicKey, AB: RistrettoPoint, pi: avow_proof ) -> bool{
-    true
-}
+pub fn Judge(pk_J: PublicKey,  pi: avow_proof ) -> bool{
+    let R_AB = &pi.z_AB * &RISTRETTO_BASEPOINT_TABLE - Scalar::from_bits( pi.c_AB) * pi.AB;
+    let R_J = pi.z_j * RISTRETTO_BASEPOINT2.decompress().unwrap() - pi.c_J * pk_J.0;
+    println!("In R_J = {:?}",R_J.compress().to_bytes());
+    println!("In R_AB = {:?}",R_AB.compress().to_bytes());
+    let right = hash(&[R_AB.compress().to_bytes(),R_J.compress().to_bytes()].concat()) ;
+    let left = xor(pi.c_AB,pi.c_J.to_bytes());
+    
+    println!("left:{:?}",left);
+    println!("right:{:?}",right);
+        if xor(left, right[..32].try_into().unwrap()) == [0u8;32]
+    {
+        true
+    }
+    else{
+        false
+    }
 
+}
+#[allow(non_snake_case)]
 #[test]
 fn test_avow(){
     let mut rt = runtime::Builder::new().basic_scheduler().enable_all().build().unwrap();
+    let secret_j = StaticSecret::new(&mut OsRng);
+    let pk_J = PublicKey::from(&secret_j);
     rt.block_on(async move{
-    avow().await;
-    })
+    let (pk_a,pk_b,AB,sk_a,sk_b,k_sess, alpha, beta) 
+            = key_exchange().await;
+    let mut avow_prof = 
+        avow(pk_a,pk_b, pk_J,sk_a,sk_b,alpha,beta,true,k_sess.to_bytes()).await;
+        
+    avow_prof.AB = AB.0;
+        //assert_eq!(avow_prof.c_AB * alpha + avow_prof.r_A + avow_prof.c_AB * beta+avow_prof.r_B, avow_prof.z_AB);
+        assert_eq!(true,Judge(pk_J, avow_prof));
+    });
+    
 }
