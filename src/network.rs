@@ -37,9 +37,9 @@ impl Comm_Channel {
     pub async fn recv(&mut self, _which:Choice) -> Bytes{
         //0 for alice recv
         
-            self.r21.try_next().await.unwrap().unwrap().freeze()
-        
-    }
+            self.r21.next().await.unwrap().unwrap().freeze()
+           
+}
 }
 #[allow(non_snake_case)]
 pub async fn Start_Judge(cert_path:&Path , key_path:&Path)-> Coord{
@@ -53,6 +53,8 @@ pub async fn Start_Judge(cert_path:&Path , key_path:&Path)-> Coord{
 pub async fn Start_Client(cert_path:&Path ,name: String, port:u16) -> (Client, IncomingStreams){
     let mut client_cfg = ClientConfig::new(name,"localhost".to_string());
         client_cfg.set_ca_from_file(cert_path).unwrap();
+        //client_cfg.disable_keepalive();
+        client_cfg.enable_stateless_retry();
         client_cfg.set_port(port);
         Client::new(client_cfg.clone()).await.unwrap()
 }

@@ -52,7 +52,7 @@ pub fn xor(left:[u8;32],right:[u8;32]) -> [u8;32]{
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Zeroize)]
-pub struct PublicKey(pub(crate) RistrettoPoint);
+pub struct PublicKey(pub RistrettoPoint);
 
 impl From<&[u8]> for PublicKey{
 
@@ -99,7 +99,7 @@ impl From<Bytes> for PublicKey{
 #[derive(Clone, Zeroize, Debug)]
 #[zeroize(drop)]
 pub struct StaticSecret(
-    #[cfg_attr(feature = "serde", serde(with = "AllowUnreducedScalarBytes"))] pub(crate) Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "AllowUnreducedScalarBytes"))] pub Scalar,
 );
 
 impl StaticSecret {

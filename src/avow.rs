@@ -32,7 +32,7 @@ pub struct avow_proof{
     z_AB : Scalar,
     c_J  : Scalar,
     z_j  : Scalar,
-    AB   : RistrettoPoint,
+    pub AB   : RistrettoPoint,
     // r_A, r_B just for test
     //r_A  : Scalar,
     //r_B  : Scalar
@@ -177,22 +177,4 @@ pub fn Judge(pk_J: PublicKey,  pi: avow_proof ) -> bool{
         false
     }
 
-}
-#[allow(non_snake_case)]
-#[test]
-fn test_avow(){
-    let mut rt = runtime::Builder::new().basic_scheduler().enable_all().build().unwrap();
-    let secret_j = StaticSecret::new(&mut OsRng);
-    let pk_J = PublicKey::from(&secret_j);
-    rt.block_on(async move{
-    let (pk_a,pk_b,AB,sk_a,sk_b,k_sess, alpha, beta) 
-            = key_exchange().await;
-    let mut avow_prof = 
-        avow(pk_a,pk_b, pk_J,sk_a,sk_b,alpha,beta,true,k_sess.to_bytes()).await;
-        
-    avow_prof.AB = AB.0;
-        //assert_eq!(avow_prof.c_AB * alpha + avow_prof.r_A + avow_prof.c_AB * beta+avow_prof.r_B, avow_prof.z_AB);
-        assert_eq!(true,Judge(pk_J, avow_prof));
-    });
-    
 }

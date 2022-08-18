@@ -106,48 +106,6 @@ pub async fn Bob_key_exchange(secret:StaticSecret, Sk:StaticSecret, _Alice_Pk:Pu
         
 
 }
-#[allow(non_snake_case,unused_variables,unused_mut)]
-#[test]
-fn test_key_exchange(){
-    let mut rt = runtime::Builder::new().basic_scheduler().enable_all().build().unwrap();
-    rt.block_on(async move{
-    key_exchange().await;
-    })
-    /*
-    let secret_a = StaticSecret::new(&mut OsRng);
-    let A = PublicKey::from(&secret_a);
-
-    let secret_b = StaticSecret::new(&mut OsRng);
-    let B = PublicKey::from(&secret_b);
-
-    let sk_a = StaticSecret::new(&mut OsRng);
-    let pk_a = &sk_a.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap();
-
-    let sk_b = StaticSecret::new(&mut OsRng);
-    let pk_b = &sk_b.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap();
-
-    let (cpath,kpath) = get_cert_paths();
-    let mut rt = runtime::Builder::new().basic_scheduler().enable_all().build().unwrap();
-    rt.block_on(async move{
-
-        let Judge = Start_Judge(&cpath, &kpath).await;
-        let port = Judge.local_addr().port();
-        let (mut Alice, _incAlice) = Start_Client(&cpath, "Alice".to_string(), port).await;
-        let (Bob,mut incBob) = Start_Client(&cpath, "Bob".to_string(), port).await;
-        let (mut chal1,mut chal2) = Comm_Channel::new(Alice,"Bob".to_string(),incBob).await;
-
-        let share_key = Alice_key_exchange(secret_a, sk_a, PublicKey( pk_a), PublicKey( pk_b), chal1).await;
-
-        let Bob_kex = thread::spawn(move| |{
-        block_on( Bob_key_exchange(secret_b, sk_b, PublicKey( pk_a), PublicKey( pk_b), chal2));
-    }
-        
-    );
-    Bob_kex.join().expect("bob kex failed");
-
-
-}) */
-}
 #[allow(non_snake_case)]
 pub async fn key_exchange() -> 
     (PublicKey, PublicKey,PublicKey,
@@ -280,3 +238,5 @@ pub async fn key_exchange() ->
     
 
 }
+
+
