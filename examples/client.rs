@@ -6,7 +6,7 @@
 // LICENSE or https://www.apache.org/licenses/LICENSE-2.0).
 // This file may not be copied, modified, or distributed
 // except according to those terms.
-
+use std::time::Instant;
 use bytes::Bytes;
 use conec::{Client, ClientConfig};
 #[allow(unused_imports)]
@@ -17,6 +17,7 @@ use futures::{future, prelude::*};
 use tokio::stream::StreamExt;
 
 use std::{env::args, path::PathBuf};
+use std::mem::size_of;
 #[allow(unused_imports)]
 use tokio_serde::{formats::SymmetricalBincode, SymmetricallyFramed};
 use subtle::Choice;
@@ -97,6 +98,8 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
     if peer == "bob".to_string(){
 
         //Side of Alice
+        let start = Instant::now();
+
         let  (secret_a ,A ,sk ,pk ) = init_key();
     
         send.send(Bytes::copy_from_slice(& A.to_bytes())).await.unwrap();
@@ -124,6 +127,8 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
 
 
         let (K,rho_A,alpha) = derive_key(A, PublicKey::from(recv_B.clone()), secret_a.clone(), signature_of_knowledge, sok_recv.clone(),  Choice::from(0));
+        let duration = start.elapsed();
+        println!("[+] Alice finished key exchange in {:?}",duration);
         println!("[+] key established:{:?}",K);
 
         println!("[+] Start Avow");
@@ -154,7 +159,7 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
 
         println!("[+] sending encrypted c_A, z_A, and s_A");
 
-        send.send(Bytes::from(ciphertext)).await.unwrap();
+        send.send(Bytes::from(ciphertext.clone())).await.unwrap();
 
         println!("[+] generating avow proof");
         let mut avow_prof = prove_avow(c_A, recv_c_B, z_A, recv_z_B, R_A, 
@@ -171,8 +176,8 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         avow_prof.AB = CompressedRistretto(recv_B.to_vec().try_into().unwrap()).decompress().unwrap() + A.0;
         
 
-        println!("z_AB:{:?}",Bytes::copy_from_slice( &z_AB.to_bytes()));
-        println!("AB:{:?}", Bytes::copy_from_slice( &avow_prof.AB.compress().to_bytes()));
+        let duration_2 = start.elapsed();
+        println!("[+] Alice finished avow in {:?}",duration_2-duration);
 
         if Judge(pk_J, avow_prof){
             println!("[+] succeed avow");
@@ -180,6 +185,9 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         else{
             println!("[+] avow denied");
         }
+        println!("[+] Alice runs {:?}",duration_2);
+        let total_size = 32 + size_of::<SigmaOr>()*2 + 32 + 32 + ciphertext.len() + 32;
+        println!("Alice's Communication overhead:{}",total_size);
 
 
 
@@ -187,6 +195,8 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
 }
     else{
         //Bob
+        let start = Instant::now();
+
         let  (secret_b ,B ,sk ,pk ) = init_key();
 
         let recv_A = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
@@ -211,7 +221,8 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
             panic!("SoK_A is not valid");
         }
         let (K,rho_B,beta) = derive_key(PublicKey::from(recv_A.clone()), B, secret_b.clone(), sok_recv.clone(), signature_of_knowledge,Choice::from(1));
-
+        let duration = start.elapsed();
+        println!("[+] Bob finished key exchange in {:?}",duration);
         println!("[+] key established:{:?}",K);
 
         println!("[+] Start Avow");
@@ -260,14 +271,19 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         avow_prof.z_AB = z_AB;
         avow_prof.AB = CompressedRistretto(recv_A.to_vec().try_into().unwrap()).decompress().unwrap() + B.0;
         
-        println!("z_AB:{:?}",Bytes::copy_from_slice( &z_AB.to_bytes()));
-        println!("AB:{:?}", Bytes::copy_from_slice( &avow_prof.AB.compress().to_bytes()));
+        let duration_2 = start.elapsed();
+        println!("[+] Bob finished avow in {:?}",duration_2-duration);
+
         if Judge(pk_J, avow_prof){
             println!("[+] succeed avow");
         }
         else{
             println!("[+] avow denied");
         }
+        println!("[+] Bob runs {:?}",duration_2);
+
+        let total_size = size_of::<SigmaOr>()*2+ 32 + 32 + ciphertext.len() + 32;
+        println!("Bob's Communication overhead:{}",total_size);
     }
     /* 
     eprintln!("Go ahead and type.");
