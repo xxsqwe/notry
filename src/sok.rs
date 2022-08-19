@@ -64,7 +64,7 @@ impl SigmaOr{
             else{
                 &self.z_1.0*&RISTRETTO_BASEPOINT_TABLE == self.t_1.0+self.right.0*self.c_1.0
             };
-            println!("left={:?}, right = {:?}",first,second);
+            //println!("left={:?}, right = {:?}",first,second);
         first && second
     }
     pub fn new()-> Self{
@@ -256,7 +256,7 @@ pub fn sok_verify(mut proof: Vec<SigmaOr>, j: Choice) -> bool{
         }
     }
     else{
-        println!("first part sigma:{:?}",proof[0]);
+        //println!("first part sigma:{:?}",proof[0]);
         return false;
     }
 }

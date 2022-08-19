@@ -13,7 +13,7 @@ use bytes::Bytes;
 use curve25519_dalek::constants::{RISTRETTO_BASEPOINT_TABLE};
 
 use curve25519_dalek::ristretto::{RistrettoPoint, CompressedRistretto};
-use curve25519_dalek::scalar::{Scalar, self};
+use curve25519_dalek::scalar::{Scalar};
 use rand::rngs::OsRng;
 #[allow(unused_imports)]
 use sha2::{Sha512,Digest};
@@ -38,7 +38,7 @@ pub struct avow_proof{
     //r_B  : Scalar
 }
 impl avow_proof {
-    fn new() -> Self{
+    pub fn new() -> Self{
         avow_proof { 
             c_AB: [0u8;32],//Scalar::zero(),
             z_AB: Scalar::zero(), 
@@ -137,7 +137,7 @@ pub async fn avow(alice:PublicKey, bob: PublicKey, judge: PublicKey, sk_a: Stati
 /// return c_{AB}
 #[allow(unused_variables,non_snake_case)]
 
-fn prove_avow(c_A:StaticSecret,c_B:StaticSecret,z_A:StaticSecret,z_B:StaticSecret, R_A: RistrettoPoint, R_B: RistrettoPoint, PK_J : PublicKey)-> avow_proof{
+pub fn prove_avow(c_A:StaticSecret,c_B:StaticSecret,z_A:StaticSecret,z_B:StaticSecret, R_A: RistrettoPoint, R_B: RistrettoPoint, PK_J : PublicKey)-> avow_proof{
     let c_J = Scalar::from_bits( xor(c_A.to_bytes(),c_B.to_bytes()));
     let z_J = z_A.0 + z_B.0;
     let R_J = z_J * RISTRETTO_BASEPOINT2.decompress().unwrap() - c_J * PK_J.0;
@@ -156,6 +156,16 @@ fn prove_avow(c_A:StaticSecret,c_B:StaticSecret,z_A:StaticSecret,z_B:StaticSecre
     avow_prof
 
 
+}
+#[allow(non_snake_case)]
+pub fn Init() -> (StaticSecret,StaticSecret,StaticSecret,StaticSecret,RistrettoPoint,RistrettoPoint){
+        let c = StaticSecret::new(&mut OsRng);
+        let z = StaticSecret::new(&mut OsRng);
+        let s = StaticSecret::new(&mut OsRng);
+        let r = StaticSecret::new(&mut OsRng);
+        let E = c.0 * RISTRETTO_BASEPOINT2.decompress().unwrap() + &z.0 * &RISTRETTO_BASEPOINT_TABLE + s.0 * RISTRETTO_BASEPOINT_RANDOM.decompress().unwrap();
+        let R = &r.0 * &RISTRETTO_BASEPOINT_TABLE;
+        (c,z,s,r,E,R)
 }
 #[allow(unused_variables,non_snake_case)]
 

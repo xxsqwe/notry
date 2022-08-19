@@ -6,7 +6,6 @@ use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use futures::{StreamExt, SinkExt, TryStreamExt};
 use hkdf::Hkdf;
-use rand::distributions::Gamma;
 use sha2::Sha256;
 
 use crate::utils::{PublicKey,StaticSecret,xor,hash,get_cert_paths, RISTRETTO_BASEPOINT2};
@@ -17,6 +16,7 @@ use tokio::{runtime, time};
 use rand::rngs::OsRng;
 use subtle::Choice;
 use crate::network::{Start_Client, Comm_Channel,Start_Judge};
+
 
 #[allow(non_snake_case,unused_variables)]
 pub async fn Alice_key_exchange( secret:StaticSecret, Sk:StaticSecret, Alice_Pk:PublicKey, Bob_Pk: PublicKey, mut A2B_bi:Comm_Channel) -> PublicKey{
@@ -106,7 +106,7 @@ pub async fn Bob_key_exchange(secret:StaticSecret, Sk:StaticSecret, _Alice_Pk:Pu
         
 
 }
-#[allow(non_snake_case)]
+#[allow(non_snake_case,unused_variables)]
 pub async fn key_exchange() -> 
     (PublicKey, PublicKey,PublicKey,
      StaticSecret,StaticSecret,
@@ -233,10 +233,43 @@ pub async fn key_exchange() ->
     (PublicKey(pk_a),PublicKey(pk_b),PublicKey(A.0+B.0),sk_a, sk_b, k_sess_alice,alpha,beta)
     
     
+}
+pub fn init_key()-> (StaticSecret,PublicKey,StaticSecret,PublicKey){
+    let secret_x = StaticSecret::new(&mut OsRng);
+    let x = PublicKey::from(&secret_x);
+    let sk = StaticSecret::new(&mut OsRng);
+    let pk = PublicKey(&sk.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap());
+    (secret_x,x,sk,pk)
+}
+#[allow(non_snake_case)]
+pub fn derive_key(A: PublicKey,B:PublicKey, secret_conponent:StaticSecret, SoK_A:Vec<SigmaOr>,SoK_B:Vec<SigmaOr>,role: Choice) -> ([u8;32],[u8;32],Scalar){
+    let K = if role.unwrap_u8()==0u8{
+        B.0 * secret_conponent.0
+    }
+    else{
+        A.0 * secret_conponent.0
+    };
+    let KeyMatereial = A.to_bytes().iter()
+                                                .chain(&B.to_bytes())
+                                                .chain(&SoK_A[0].to_bytes())
+                                                .chain(&SoK_A[1].to_bytes())
+                                                .chain(&SoK_B[0].to_bytes())
+                                                .chain(&SoK_B[1].to_bytes())
+                                                .chain(&K.compress().to_bytes())
+                                                .cloned()
+                                                .collect::<Vec<_>>();
+            let mut k_sess = [0u8;32];
+            let hf = Hkdf::<Sha256>::new(None,&KeyMatereial);
+            hf.expand(&[] as &[u8;0],  &mut k_sess).expect("HKDF expansion Failed"); //KDF(A || B || σ A || σ B || K)
+            let rho = hash(&k_sess.iter().chain(String::from("avow").as_bytes()).cloned().collect::<Vec<u8>>());//H(k_sess|| “avow”)
+            let alpha_beta = if role.unwrap_u8()==0u8{
+                Scalar::from_bits( rho[..32].try_into().unwrap()) + Scalar::from_bits( secret_conponent.clone().0.to_bytes())
+            }
+            else{
+                Scalar::from_bits( rho[..32].try_into().unwrap()) - Scalar::from_bits( secret_conponent.clone().0.to_bytes())
 
-    
-    
+            };
+            (k_sess,rho[..32].try_into().unwrap(),alpha_beta)
 
 }
-
 

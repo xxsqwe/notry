@@ -9,16 +9,35 @@
 
 use bytes::Bytes;
 use conec::{Client, ClientConfig};
+#[allow(unused_imports)]
+
 use futures::{future, prelude::*};
+#[allow(unused_imports)]
+
 use tokio::stream::StreamExt;
 use std::{env::args, path::PathBuf};
-use tokio::io::AsyncBufReadExt;
-
+#[allow(unused_imports)]
 use tokio_serde::{formats::SymmetricalBincode, SymmetricallyFramed};
 use subtle::Choice;
 use rand_core::OsRng;
-use notry::sok::{sok,sok_verify};
-use notry::utils::{hash,PublicKey,StaticSecret,xor,RISTRETTO_BASEPOINT2,get_cert_paths};
+#[allow(unused_imports)]
+
+use aes_gcm::{
+    aead::{Aead, KeyInit, consts::U12},
+    Aes256Gcm, Nonce};
+    #[allow(unused_imports)]
+
+use aes_gcm::aead::generic_array::GenericArray;
+
+use curve25519_dalek::scalar::Scalar;
+
+use notry::{sok::{sok,sok_verify,SigmaOr}, utils::AES_Enc};
+#[allow(unused_imports)]
+
+use notry::utils::{PublicKey,StaticSecret,xor,RISTRETTO_BASEPOINT2};
+use notry::key_exchange::{init_key,derive_key};
+#[allow(unused_imports)]
+use notry::avow::{Judge,avow_proof, prove_avow};
 
 fn get_cert_path() -> PathBuf {
     let dir = directories_next::ProjectDirs::from("am.kwant", "conec", "conec-tests").unwrap();
@@ -48,7 +67,7 @@ fn main() {
 
     run_client(cfg, peer, initiate)
 }
-
+#[allow(non_snake_case,unused_variables)]
 #[tokio::main]
 async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
     use std::io::{stderr, Write};
@@ -73,26 +92,129 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         eprintln!("Received.");
         (send, recv)
     };
+
+    let secret_j = StaticSecret::new(&mut OsRng);
+    let pk_J = PublicKey::from(&secret_j);
+
     if peer == "bob".to_string(){
-    let secret_a = StaticSecret::new(&mut OsRng);
-    let A = PublicKey::from(&secret_a);
+
+        //Side of Alice
+        let  (secret_a ,A ,sk ,pk ) = init_key();
     
-    
-    send.send(Bytes::copy_from_slice(& A.to_bytes())).await.unwrap();
-    let sok = tokio::stream::StreamExt::try_next(&mut recv).await.unwrap().unwrap().freeze();
-    println!("sok recv:{:?}",sok);
+        send.send(Bytes::copy_from_slice(& A.to_bytes())).await.unwrap();
+
+        let sok_rec_0 = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        let sok_rec_1 = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        let sok_recv = vec![SigmaOr::from(&sok_rec_0.to_vec().try_into().unwrap()),SigmaOr::from(&sok_rec_1.to_vec().try_into().unwrap())];
+        
+        if sok_verify(sok_recv.clone(),Choice::from(1)){
+        
+            println!("[+] SoK_B recv verified");
+
+        }
+        else{
+            panic!("SoK_B is not valid");
+        }
+
+        let recv_B = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        println!("[+] recevied B:{:?}",recv_B);
+
+        let signature_of_knowledge = sok(A.clone().try_into().unwrap(),recv_B.clone().try_into().unwrap(),pk,secret_a.clone(),sk,Choice::from(0));
+
+        send.send(Bytes::copy_from_slice( &signature_of_knowledge[0].to_bytes())).await.unwrap();
+        send.send(Bytes::copy_from_slice( &signature_of_knowledge[1].to_bytes())).await.unwrap();
+
+
+        let (K,rho_A,alpha) = derive_key(A, PublicKey::from(recv_B), secret_a.clone(), signature_of_knowledge, sok_recv.clone(),  Choice::from(0));
+        println!("[+] key established:{:?}",K);
+
+        println!("[+] Start Avow");
+        let (c_A 
+        , z_A 
+        , s_A 
+        , r_A 
+        , E_A
+        , R_A) = notry::avow::Init();
+        
+        send.send(Bytes::copy_from_slice(& E_A.clone().compress().to_bytes())).await.unwrap();
+        send.send(Bytes::copy_from_slice(& R_A.clone().compress().to_bytes())).await.unwrap();
+
+        let (cipher,ciphertext) = AES_Enc(K, vec![c_A,z_A,s_A]);
+
+        let recv_R_B = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+
+        println!("recv_R_B:{:?}",recv_R_B);
+        let recv_ciphertext = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        let recv_ciphertext_decrpted = cipher.decrypt(Nonce::from_slice(b"avow_key_exc"), ciphertext.clone().as_slice()).unwrap();
+        let recv_c_B = StaticSecret(Scalar::from_bits( recv_ciphertext_decrpted[..32].try_into().unwrap()));
+        let recv_z_B = StaticSecret(Scalar::from_bits( recv_ciphertext_decrpted[32..64].try_into().unwrap()));
+
+        println!("c_B={:?},z_B = {:?}",recv_c_B,recv_z_B);
+        println!("recv_ciphertext:{:?}",recv_ciphertext.to_vec());
+        println!("plaintext dec:{:?}",recv_ciphertext_decrpted);
+
+
+
+
 
 }
     else{
-        let secret_b = StaticSecret::new(&mut OsRng);
-        let B = PublicKey::from(&secret_b);
-        let sk = StaticSecret::new(&mut OsRng);
-        let pk = &sk.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap();
+        //Bob
+        let  (secret_b ,B ,sk ,pk ) = init_key();
 
-        let Arecv = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
-        let signature_of_knowledge = sok(Arecv.clone().try_into().unwrap(),B,PublicKey(pk),secret_b,sk,Choice::from(1));
-        println!("recevied A:{:?}",Arecv);
+        let recv_A = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        let signature_of_knowledge = sok(recv_A.clone().try_into().unwrap(),B,pk,secret_b.clone(),sk,Choice::from(1));
+        println!("[+] recevied A:{:?}",recv_A);
         send.send(Bytes::copy_from_slice( &signature_of_knowledge[0].to_bytes())).await.unwrap();
+        send.send(Bytes::copy_from_slice( &signature_of_knowledge[1].to_bytes())).await.unwrap();
+
+        send.send(Bytes::copy_from_slice(& B.to_bytes())).await.unwrap();
+
+
+        let sok_rec_0 = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        let sok_rec_1 = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        let sok_recv = vec![SigmaOr::from(&sok_rec_0.to_vec().try_into().unwrap()),SigmaOr::from(&sok_rec_1.to_vec().try_into().unwrap())];
+
+        if sok_verify(sok_recv.clone(),Choice::from(0)){
+        
+            println!("[+] SoK_A recv verified");
+
+        }
+        else{
+            panic!("SoK_A is not valid");
+        }
+        let (K,rho_B,beta) = derive_key(PublicKey::from(recv_A), B, secret_b.clone(), sok_recv.clone(), signature_of_knowledge,Choice::from(1));
+
+        println!("[+] key established:{:?}",K);
+
+        println!("[+] Start Avow");
+
+        let (c_B 
+            , z_B 
+            , _ 
+            , r_B 
+            , _
+            , R_B) = notry::avow::Init();
+        
+        let recv_E_A = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        let recv_R_A = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        
+        let (cipher,ciphertext) = AES_Enc(K, vec![c_B.clone(),z_B.clone()]);
+        println!("original r_B={:?}",Bytes::copy_from_slice(&R_B.compress().to_bytes()));
+
+        println!("original c_B={:?},z_B = {:?}",c_B,z_B);
+        println!("ciphertext:{:?}",ciphertext);
+        println!("plaintext:{:?}",cipher.decrypt(Nonce::from_slice(b"avow_key_exc"), ciphertext.as_slice()).unwrap());
+
+        send.send(Bytes::copy_from_slice(&R_B.compress().to_bytes())).await.unwrap();
+        send.send(Bytes::from(ciphertext)).await.unwrap()
+
+        
+        
+
+
+        
+
     }
     /* 
     eprintln!("Go ahead and type.");

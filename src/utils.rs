@@ -1,7 +1,11 @@
 use std::fmt::Debug;
-use std::io::Error;
 
 use bytes::Bytes;
+#[allow(unused_imports)]
+
+use itertools::chain;
+#[allow(unused_imports)]
+
 use sha2::{Sha256,Digest, Sha512};
 #[allow(unused_imports)]
 use curve25519_dalek::constants::{ED25519_BASEPOINT_TABLE,ED25519_BASEPOINT_COMPRESSED,RISTRETTO_BASEPOINT_TABLE};
@@ -18,6 +22,12 @@ use rand_core::CryptoRng;
 use rand_core::RngCore;
 
 use zeroize::Zeroize;
+#[allow(unused_imports)]
+
+use aes_gcm::{
+    aead::{Aead, KeyInit, consts::U12},
+    Aes256Gcm, Nonce};
+use aes_gcm::aead::generic_array::GenericArray;
 
 pub const EDWARDS_BASE2: CompressedEdwardsY=
    CompressedEdwardsY( [0x31,0x1d,0xdd,0xd2,0x2e,0xe8,0x8d,0xd6,
@@ -46,6 +56,20 @@ pub fn hash( msg: &[u8] ) -> [u8;64] {
    // println!("hash:{:?}",output);
     output
 }
+
+#[allow(non_snake_case)]
+pub fn AES_Enc(k: [u8;32], plaintext:Vec<StaticSecret>)-> (Aes256Gcm,Vec<u8>){
+    let cipher = Aes256Gcm::new(GenericArray::from_slice( &k));
+        let nonce = Nonce::from_slice(b"avow_key_exc"); // 96-bits; unique per message
+        let mut pt= Vec::new(); 
+            for i in plaintext{
+                pt = pt.iter().chain(&i.to_bytes()).cloned().collect::<Vec<_>>();
+            }
+        
+        let ciphertext = cipher.encrypt(nonce, pt.as_slice()).unwrap();
+        (cipher,ciphertext)
+}
+
 
 pub fn xor(left:[u8;32],right:[u8;32]) -> [u8;32]{
     left.iter().zip(right).map(|(x,y)| x^y).collect::<Vec<u8>>().try_into().unwrap()

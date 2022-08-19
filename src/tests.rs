@@ -7,16 +7,25 @@ use crate::{
 
 
 };
+#[allow(unused_imports)]
+
 use std::path::Path;
+#[allow(unused_imports)]
+
 use futures::{StreamExt, SinkExt, TryStreamExt, sink::Flush};
 
 use bytes::Bytes;
+#[allow(unused_imports)]
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
+#[allow(unused_imports)]
 use curve25519_dalek::scalar::Scalar;
 use subtle::Choice;
 use rand::rngs::OsRng;
 use hkdf::Hkdf;
+#[allow(unused_imports)]
+
 use sha2::{Sha256,Sha512};
+#[allow(unused_imports)]
 
 use tokio::{runtime, time};
 use aes_gcm::aead::generic_array::GenericArray;
@@ -130,7 +139,7 @@ fn test_network(){
     .unwrap();
     
 }
-#[test]
+
 #[allow(non_snake_case,unused_mut,unused_variables)]
 fn test_sok_network(){
     let secret_a = StaticSecret::new(&mut OsRng);
@@ -235,6 +244,7 @@ fn test_key_exchange(){
 #[test]
 fn test_avow(){
     let mut rt = runtime::Builder::new().basic_scheduler().enable_all().build().unwrap();
+    
     let secret_j = StaticSecret::new(&mut OsRng);
     let pk_J = PublicKey::from(&secret_j);
     rt.block_on(async move{

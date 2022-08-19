@@ -31,7 +31,7 @@ impl Comm_Channel {
     pub async fn new(mut source:Client, dest:String,mut des_inc:IncomingStreams)->(Self,Self){
         source.new_channel(dest.clone()).await.unwrap();
         let (mut s12,mut r21) = source.new_direct_stream(dest.clone()).await.unwrap();
-        let (_,_, mut s21, mut r12) = des_inc.next().await.unwrap();
+        let (_,_, mut s21, mut r12) = tokio::stream::StreamExt::next(&mut des_inc).await.unwrap();
         (Comm_Channel{s12,r21:r12},Comm_Channel{s12:s21,r21})
     }
     pub async fn recv(&mut self, _which:Choice) -> Bytes{
@@ -58,7 +58,7 @@ pub async fn Start_Client(cert_path:&Path ,name: String, port:u16) -> (Client, I
         client_cfg.set_port(port);
         Client::new(client_cfg.clone()).await.unwrap()
 }
-#[allow(unused_mut,non_snake_case)]
+#[allow(unused_mut,non_snake_case,unused_variables)]
 pub async fn Send(message: Bytes,mut source:Client, dest:String,mut inc:IncomingStreams)  
 {
     //source.new_channel(dest.clone()).await.unwrap();
