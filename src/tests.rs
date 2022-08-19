@@ -140,7 +140,7 @@ fn test_network(){
     
 }
 
-#[allow(non_snake_case,unused_mut,unused_variables)]
+#[allow(non_snake_case,unused_mut,unused_variables,dead_code)]
 fn test_sok_network(){
     let secret_a = StaticSecret::new(&mut OsRng);
     let A = PublicKey::from(&secret_a);

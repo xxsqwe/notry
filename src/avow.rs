@@ -138,17 +138,23 @@ pub async fn avow(alice:PublicKey, bob: PublicKey, judge: PublicKey, sk_a: Stati
 #[allow(unused_variables,non_snake_case)]
 
 pub fn prove_avow(c_A:StaticSecret,c_B:StaticSecret,z_A:StaticSecret,z_B:StaticSecret, R_A: RistrettoPoint, R_B: RistrettoPoint, PK_J : PublicKey)-> avow_proof{
+
+    
+
     let c_J = Scalar::from_bits( xor(c_A.to_bytes(),c_B.to_bytes()));
+  
     let z_J = z_A.0 + z_B.0;
+    
     let R_J = z_J * RISTRETTO_BASEPOINT2.decompress().unwrap() - c_J * PK_J.0;
     
     let R_AB = R_A + R_B;
-    
+
+
     let c = hash(&[R_AB.compress().to_bytes(),R_J.compress().to_bytes()].concat());
     let c_AB =  xor(c[..32].try_into().unwrap(),c_J.to_bytes());
-    println!("c_AB={:?}",c_AB);
-    println!("c_A xor c_B = {:?}",xor(c[..32].try_into().unwrap(),c_J.to_bytes()));
-    assert_eq!(1,1);
+
+    //println!("c_A xor c_B = {:?}",xor(c[..32].try_into().unwrap(),c_J.to_bytes()));
+    //assert_eq!(1,1);
     let mut avow_prof = avow_proof::new();
     avow_prof.c_J = c_J;
     avow_prof.z_j = z_J;
@@ -172,13 +178,11 @@ pub fn Init() -> (StaticSecret,StaticSecret,StaticSecret,StaticSecret,RistrettoP
 pub fn Judge(pk_J: PublicKey,  pi: avow_proof ) -> bool{
     let R_AB = &pi.z_AB * &RISTRETTO_BASEPOINT_TABLE - Scalar::from_bits( pi.c_AB) * pi.AB;
     let R_J = pi.z_j * RISTRETTO_BASEPOINT2.decompress().unwrap() - pi.c_J * pk_J.0;
-    println!("In R_J = {:?}",R_J.compress().to_bytes());
-    println!("In R_AB = {:?}",R_AB.compress().to_bytes());
+    
     let right = hash(&[R_AB.compress().to_bytes(),R_J.compress().to_bytes()].concat()) ;
     let left = xor(pi.c_AB,pi.c_J.to_bytes());
     
-    println!("left:{:?}",left);
-    println!("right:{:?}",right);
+    
         if xor(left, right[..32].try_into().unwrap()) == [0u8;32]
     {
         true

@@ -30,12 +30,12 @@ use aes_gcm::{
 
 use aes_gcm::aead::generic_array::GenericArray;
 
-use curve25519_dalek::{scalar::Scalar, ristretto::CompressedRistretto};
+use curve25519_dalek::{scalar::Scalar, ristretto::CompressedRistretto,constants::RISTRETTO_BASEPOINT_TABLE};
 
 use notry::{sok::{sok,sok_verify,SigmaOr}};
 #[allow(unused_imports)]
 
-use notry::utils::{PublicKey,StaticSecret,xor,AES_Dec,AES_Enc,RISTRETTO_BASEPOINT2};
+use notry::utils::{PublicKey,StaticSecret,xor,AES_Dec,AES_Enc,RISTRETTO_BASEPOINT2,RISTRETTO_BASEPOINT_RANDOM,RISTRETTO_JUDGE_PUBK};
 use notry::key_exchange::{init_key,derive_key};
 #[allow(unused_imports)]
 use notry::avow::{Judge,avow_proof, prove_avow};
@@ -93,10 +93,7 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         eprintln!("Received.");
         (send, recv)
     };
-
-    let secret_j = StaticSecret::new(&mut OsRng);
-    let pk_J = PublicKey::from(&secret_j);
-
+    let pk_J = PublicKey(RISTRETTO_JUDGE_PUBK.decompress().unwrap());
     if peer == "bob".to_string(){
 
         //Side of Alice
@@ -167,10 +164,16 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         
         send.send(Bytes::copy_from_slice( &z_alpha.to_bytes())).await.unwrap();
         let recv_z_beta = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+
+
         let z_AB = z_alpha + Scalar::from_bits( recv_z_beta.to_vec().try_into().unwrap());
         avow_prof.z_AB = z_AB;
         avow_prof.AB = CompressedRistretto(recv_B.to_vec().try_into().unwrap()).decompress().unwrap() + A.0;
         
+
+        println!("z_AB:{:?}",Bytes::copy_from_slice( &z_AB.to_bytes()));
+        println!("AB:{:?}", Bytes::copy_from_slice( &avow_prof.AB.compress().to_bytes()));
+
         if Judge(pk_J, avow_prof){
             println!("[+] succeed avow");
         }
@@ -237,6 +240,10 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         let Recv_z_A:StaticSecret = StaticSecret(Scalar::from_bits( recv_dec_pack[32..64].try_into().unwrap())); 
         let Recv_s_A:StaticSecret = StaticSecret(Scalar::from_bits( recv_dec_pack[64..96].try_into().unwrap()));
         
+        assert_eq!(recv_E_A.to_vec(),   Bytes::copy_from_slice(&(Recv_c_A.0 * RISTRETTO_BASEPOINT2.decompress().unwrap() 
+                                                + &Recv_z_A.0 * &RISTRETTO_BASEPOINT_TABLE 
+                                                + Recv_s_A.0 * RISTRETTO_BASEPOINT_RANDOM.decompress().unwrap()).compress().to_bytes()));
+    
         println!("[+] generating avow proof");
         
         let mut avow_prof = prove_avow(Recv_c_A, c_B, Recv_z_A, z_B, 
@@ -246,10 +253,15 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         
         let recv_z_alpha = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
         send.send(Bytes::copy_from_slice(&z_beta.to_bytes())).await.unwrap();
+        
+        
 
         let z_AB = z_beta + Scalar::from_bits( recv_z_alpha.to_vec().try_into().unwrap());
         avow_prof.z_AB = z_AB;
         avow_prof.AB = CompressedRistretto(recv_A.to_vec().try_into().unwrap()).decompress().unwrap() + B.0;
+        
+        println!("z_AB:{:?}",Bytes::copy_from_slice( &z_AB.to_bytes()));
+        println!("AB:{:?}", Bytes::copy_from_slice( &avow_prof.AB.compress().to_bytes()));
         if Judge(pk_J, avow_prof){
             println!("[+] succeed avow");
         }
