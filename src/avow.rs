@@ -28,8 +28,8 @@ use futures::{StreamExt, SinkExt, TryStreamExt};
 #[allow(non_camel_case_types,dead_code,non_snake_case)]
 #[derive(Debug)]
 pub struct avow_proof{
-    c_AB : [u8;32],//Scalar,
-    z_AB : Scalar,
+    pub c_AB : [u8;32],//Scalar,
+    pub z_AB : Scalar,
     c_J  : Scalar,
     z_j  : Scalar,
     pub AB   : RistrettoPoint,

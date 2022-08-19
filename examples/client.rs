@@ -15,6 +15,7 @@ use futures::{future, prelude::*};
 #[allow(unused_imports)]
 
 use tokio::stream::StreamExt;
+
 use std::{env::args, path::PathBuf};
 #[allow(unused_imports)]
 use tokio_serde::{formats::SymmetricalBincode, SymmetricallyFramed};
@@ -25,16 +26,16 @@ use rand_core::OsRng;
 use aes_gcm::{
     aead::{Aead, KeyInit, consts::U12},
     Aes256Gcm, Nonce};
-    #[allow(unused_imports)]
+#[allow(unused_imports)]
 
 use aes_gcm::aead::generic_array::GenericArray;
 
-use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::{scalar::Scalar, ristretto::CompressedRistretto};
 
-use notry::{sok::{sok,sok_verify,SigmaOr}, utils::AES_Enc};
+use notry::{sok::{sok,sok_verify,SigmaOr}};
 #[allow(unused_imports)]
 
-use notry::utils::{PublicKey,StaticSecret,xor,RISTRETTO_BASEPOINT2};
+use notry::utils::{PublicKey,StaticSecret,xor,AES_Dec,AES_Enc,RISTRETTO_BASEPOINT2};
 use notry::key_exchange::{init_key,derive_key};
 #[allow(unused_imports)]
 use notry::avow::{Judge,avow_proof, prove_avow};
@@ -117,7 +118,7 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         }
 
         let recv_B = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
-        println!("[+] recevied B:{:?}",recv_B);
+        println!("[+] Recevied B:{:?}",recv_B);
 
         let signature_of_knowledge = sok(A.clone().try_into().unwrap(),recv_B.clone().try_into().unwrap(),pk,secret_a.clone(),sk,Choice::from(0));
 
@@ -125,7 +126,7 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         send.send(Bytes::copy_from_slice( &signature_of_knowledge[1].to_bytes())).await.unwrap();
 
 
-        let (K,rho_A,alpha) = derive_key(A, PublicKey::from(recv_B), secret_a.clone(), signature_of_knowledge, sok_recv.clone(),  Choice::from(0));
+        let (K,rho_A,alpha) = derive_key(A, PublicKey::from(recv_B.clone()), secret_a.clone(), signature_of_knowledge, sok_recv.clone(),  Choice::from(0));
         println!("[+] key established:{:?}",K);
 
         println!("[+] Start Avow");
@@ -135,24 +136,47 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         , r_A 
         , E_A
         , R_A) = notry::avow::Init();
-        
-        send.send(Bytes::copy_from_slice(& E_A.clone().compress().to_bytes())).await.unwrap();
-        send.send(Bytes::copy_from_slice(& R_A.clone().compress().to_bytes())).await.unwrap();
 
-        let (cipher,ciphertext) = AES_Enc(K, vec![c_A,z_A,s_A]);
+        println!("z_A:{:?}",z_A);
+        send.send(Bytes::copy_from_slice(& E_A.clone().compress().to_bytes())).await.unwrap();
+        send.send(Bytes::copy_from_slice(& R_A.clone().compress().to_bytes())).await.unwrap();  
+
+        let (cipher,ciphertext) = AES_Enc(K, vec![c_A.clone(),z_A.clone(),s_A]);
 
         let recv_R_B = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
 
-        println!("recv_R_B:{:?}",recv_R_B);
+        println!("[+] recv R_B");
         let recv_ciphertext = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
-        let recv_ciphertext_decrpted = cipher.decrypt(Nonce::from_slice(b"avow_key_exc"), ciphertext.clone().as_slice()).unwrap();
+        let recv_ciphertext_decrpted = cipher.decrypt(Nonce::from_slice(b"avow_key_exc"), recv_ciphertext.clone().to_vec().as_ref()).unwrap();
         let recv_c_B = StaticSecret(Scalar::from_bits( recv_ciphertext_decrpted[..32].try_into().unwrap()));
         let recv_z_B = StaticSecret(Scalar::from_bits( recv_ciphertext_decrpted[32..64].try_into().unwrap()));
 
-        println!("c_B={:?},z_B = {:?}",recv_c_B,recv_z_B);
-        println!("recv_ciphertext:{:?}",recv_ciphertext.to_vec());
-        println!("plaintext dec:{:?}",recv_ciphertext_decrpted);
 
+        println!("[+] recv c_B and z_B");
+        
+
+        println!("[+] sending encrypted c_A, z_A, and s_A");
+
+        send.send(Bytes::from(ciphertext)).await.unwrap();
+
+        println!("[+] generating avow proof");
+        let mut avow_prof = prove_avow(c_A, recv_c_B, z_A, recv_z_B, R_A, 
+           CompressedRistretto(recv_R_B.to_vec().try_into().unwrap()).decompress().unwrap(), pk_J);
+
+        let z_alpha = Scalar::from_bits( avow_prof.c_AB) * secret_a.0 + r_A.0;
+        
+        send.send(Bytes::copy_from_slice( &z_alpha.to_bytes())).await.unwrap();
+        let recv_z_beta = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        let z_AB = z_alpha + Scalar::from_bits( recv_z_beta.to_vec().try_into().unwrap());
+        avow_prof.z_AB = z_AB;
+        avow_prof.AB = CompressedRistretto(recv_B.to_vec().try_into().unwrap()).decompress().unwrap() + A.0;
+        
+        if Judge(pk_J, avow_prof){
+            println!("[+] succeed avow");
+        }
+        else{
+            println!("[+] avow denied");
+        }
 
 
 
@@ -183,7 +207,7 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         else{
             panic!("SoK_A is not valid");
         }
-        let (K,rho_B,beta) = derive_key(PublicKey::from(recv_A), B, secret_b.clone(), sok_recv.clone(), signature_of_knowledge,Choice::from(1));
+        let (K,rho_B,beta) = derive_key(PublicKey::from(recv_A.clone()), B, secret_b.clone(), sok_recv.clone(), signature_of_knowledge,Choice::from(1));
 
         println!("[+] key established:{:?}",K);
 
@@ -200,21 +224,38 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         let recv_R_A = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
         
         let (cipher,ciphertext) = AES_Enc(K, vec![c_B.clone(),z_B.clone()]);
-        println!("original r_B={:?}",Bytes::copy_from_slice(&R_B.compress().to_bytes()));
 
-        println!("original c_B={:?},z_B = {:?}",c_B,z_B);
-        println!("ciphertext:{:?}",ciphertext);
-        println!("plaintext:{:?}",cipher.decrypt(Nonce::from_slice(b"avow_key_exc"), ciphertext.as_slice()).unwrap());
 
         send.send(Bytes::copy_from_slice(&R_B.compress().to_bytes())).await.unwrap();
-        send.send(Bytes::from(ciphertext)).await.unwrap()
+        send.send(Bytes::from(ciphertext.clone())).await.unwrap();
+        println!("[+] sending R_B and encrypted c_B and z_B");
 
+        let recv_enc_pack = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        let recv_dec_pack = cipher.decrypt(Nonce::from_slice(b"avow_key_exc"), recv_enc_pack.to_vec().as_slice()).unwrap();
         
+        let Recv_c_A:StaticSecret = StaticSecret(Scalar::from_bits( recv_dec_pack[..32].try_into().unwrap()));
+        let Recv_z_A:StaticSecret = StaticSecret(Scalar::from_bits( recv_dec_pack[32..64].try_into().unwrap())); 
+        let Recv_s_A:StaticSecret = StaticSecret(Scalar::from_bits( recv_dec_pack[64..96].try_into().unwrap()));
         
-
-
+        println!("[+] generating avow proof");
         
+        let mut avow_prof = prove_avow(Recv_c_A, c_B, Recv_z_A, z_B, 
+            CompressedRistretto( recv_R_A.to_vec().try_into().unwrap()).decompress().unwrap(), R_B, pk_J);
+        
+        let z_beta = Scalar::from_bits( avow_prof.c_AB) * secret_b.0 + r_B.0;
+        
+        let recv_z_alpha = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
+        send.send(Bytes::copy_from_slice(&z_beta.to_bytes())).await.unwrap();
 
+        let z_AB = z_beta + Scalar::from_bits( recv_z_alpha.to_vec().try_into().unwrap());
+        avow_prof.z_AB = z_AB;
+        avow_prof.AB = CompressedRistretto(recv_A.to_vec().try_into().unwrap()).decompress().unwrap() + B.0;
+        if Judge(pk_J, avow_prof){
+            println!("[+] succeed avow");
+        }
+        else{
+            println!("[+] avow denied");
+        }
     }
     /* 
     eprintln!("Go ahead and type.");

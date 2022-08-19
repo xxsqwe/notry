@@ -60,16 +60,25 @@ pub fn hash( msg: &[u8] ) -> [u8;64] {
 #[allow(non_snake_case)]
 pub fn AES_Enc(k: [u8;32], plaintext:Vec<StaticSecret>)-> (Aes256Gcm,Vec<u8>){
     let cipher = Aes256Gcm::new(GenericArray::from_slice( &k));
-        let nonce = Nonce::from_slice(b"avow_key_exc"); // 96-bits; unique per message
+    let nonce = Nonce::from_slice(b"avow_key_exc"); // 96-bits; unique per message
         let mut pt= Vec::new(); 
             for i in plaintext{
                 pt = pt.iter().chain(&i.to_bytes()).cloned().collect::<Vec<_>>();
             }
         
         let ciphertext = cipher.encrypt(nonce, pt.as_slice()).unwrap();
+        
+
         (cipher,ciphertext)
 }
+#[allow(non_snake_case)]
 
+pub fn AES_Dec(k: [u8;32], ciphertext:Vec<u8>) -> Vec<u8>
+{
+    let cipher = Aes256Gcm::new(GenericArray::from_slice( &k));
+    let nonce = Nonce::from_slice(b"avow_key_exc"); // 96-bits; unique per message
+    cipher.decrypt(nonce, ciphertext.as_ref()).unwrap()
+}
 
 pub fn xor(left:[u8;32],right:[u8;32]) -> [u8;32]{
     left.iter().zip(right).map(|(x,y)| x^y).collect::<Vec<u8>>().try_into().unwrap()
