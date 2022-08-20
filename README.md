@@ -6,7 +6,7 @@ First generate certs
 
 ./gencert
 
-First start coordinator:
+Start coordinator:
 
 ./coord localhost
 
