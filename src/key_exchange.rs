@@ -242,6 +242,8 @@ pub fn init_key()-> (StaticSecret,PublicKey,StaticSecret,PublicKey){
     (secret_x,x,sk,pk)
 }
 #[allow(non_snake_case)]
+/// after exchanging DH like messages and verified SoK, both of the parties are now able to 
+/// generate the shared key.
 pub fn derive_key(A: PublicKey,B:PublicKey, secret_conponent:StaticSecret, SoK_A:Vec<SigmaOr>,SoK_B:Vec<SigmaOr>,role: Choice) -> ([u8;32],[u8;32],Scalar){
     let K = if role.unwrap_u8()==0u8{
         B.0 * secret_conponent.0
