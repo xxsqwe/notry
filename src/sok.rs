@@ -91,6 +91,16 @@ impl SigmaOr{
         .cloned()
         .collect::<Vec<u8>>()
     }
+    pub fn size(&self)-> usize{
+        self.to_bytes().len()
+    }
+
+  
+    
+    
+
+
+    
 }
 impl From<&[u8;256]> for SigmaOr {
     fn from(bytes: &[u8;256]) -> Self {

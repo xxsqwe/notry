@@ -67,11 +67,13 @@ fn main() {
     let mut cfg = ClientConfig::new(id, server);
     cfg.set_ca_from_file(&cpath).unwrap();
 
-    run_client(cfg, peer, initiate)
+    run_client(cfg.clone(), peer.clone(), initiate);
 }
 #[allow(non_snake_case,unused_variables)]
 #[tokio::main]
 async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
+
+
     use std::io::{stderr, Write};
     eprint!("*** Connecting to coordinator... ");
     stderr().flush().unwrap();
@@ -303,3 +305,4 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
 
     futures::future::join(sfut, rfut).await;*/
 }
+

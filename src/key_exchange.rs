@@ -251,6 +251,9 @@ pub fn derive_key(A: PublicKey,B:PublicKey, secret_conponent:StaticSecret, SoK_A
     else{
         A.0 * secret_conponent.0
     };
+    //println!("A={:?},B={:?}",A.0.compress().to_bytes(),B.0.compress().to_bytes());
+    //println!("SokA={:?},\n SoKB={:?}",SoK_A[0].to_bytes(),SoK_B[0].to_bytes());
+    //åprintln!("k_agree={:?}",K.compress().to_bytes());
     let KeyMatereial = A.to_bytes().iter()
                                                 .chain(&B.to_bytes())
                                                 .chain(&SoK_A[0].to_bytes())

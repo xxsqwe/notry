@@ -199,7 +199,7 @@ fn clamp_scalar(mut scalar: [u8; 32]) -> Scalar {
 ///
 /// Each party computes this using their [`EphemeralSecret`] or [`StaticSecret`] and their
 /// counterparty's [`PublicKey`].
-#[derive(Zeroize)]
+#[derive(Zeroize,Clone)]
 #[zeroize(drop)]
 pub struct SharedSecret(pub(crate) RistrettoPoint);
 
