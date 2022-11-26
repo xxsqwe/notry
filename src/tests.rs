@@ -251,10 +251,10 @@ fn test_avow(){
     let (pk_a,pk_b,AB,sk_a,sk_b,k_sess, alpha, beta) 
             = key_exchange().await;
             
-    let mut avow_prof = 
-        avow(pk_a,pk_b, pk_J,sk_a,sk_b,alpha,beta,true,k_sess.to_bytes()).await;
+    let (mut avow_prof,_) = 
+        avow(pk_a,pk_b, pk_J,sk_a,sk_b,vec![alpha],vec![beta],true,k_sess.to_bytes()).await;
         
-    avow_prof.AB = AB.0;
+    avow_prof.AB = vec![AB.0.compress()];
         //assert_eq!(avow_prof.c_AB * alpha + avow_prof.r_A + avow_prof.c_AB * beta+avow_prof.r_B, avow_prof.z_AB);
         assert_eq!(true,Judge(pk_J, avow_prof));
     });

@@ -62,7 +62,7 @@ fn main() {
     ratchet(cfg.clone(),peer.clone(),initiate);
 }
 
-#[allow(non_snake_case,unused_variables)]
+#[allow(non_snake_case,unused_variables,unused_assignments)]
 #[tokio::main]
 async fn ratchet(cfg: ClientConfig, peer: String, initiate: bool) {
     use std::io::{stderr, Write};
@@ -89,7 +89,7 @@ async fn ratchet(cfg: ClientConfig, peer: String, initiate: bool) {
         (send, recv)
     };
     
-    let rounds=100;
+    let rounds=1000;
 
     if peer.contains("ob"){
 
@@ -193,7 +193,7 @@ async fn ratchet(cfg: ClientConfig, peer: String, initiate: bool) {
             let  (secret_b ,B ,_ ,_ ) = init_key();
 
             let recv_A = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
-            println!("[+] recevied A:{:?}",recv_A);
+            //println!("[+] recevied A:{:?}",recv_A);
 
             let sok_recv = 
             if i>0  
@@ -210,7 +210,7 @@ async fn ratchet(cfg: ClientConfig, peer: String, initiate: bool) {
             if i>0{
                 if sok_verify(sok_recv.clone(),Choice::from(0)){
                 
-                    println!("[+] SoK_A recv verified");
+                    //println!("[+] SoK_A recv verified");
 
                 }
                 else{

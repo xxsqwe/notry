@@ -21,6 +21,8 @@ use std::mem::size_of;
 #[allow(unused_imports)]
 use tokio_serde::{formats::SymmetricalBincode, SymmetricallyFramed};
 use subtle::Choice;
+#[allow(unused_imports)]
+
 use rand_core::OsRng;
 #[allow(unused_imports)]
 
@@ -103,7 +105,7 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
         let start = Instant::now();
 
         let  (secret_a ,A ,sk ,pk ) = init_key();
-    
+        println!("key generation:{:?}",start.elapsed());
         send.send(Bytes::copy_from_slice(& A.to_bytes())).await.unwrap();
 
         let sok_rec_0 = tokio::stream::StreamExt::next(&mut recv).await.unwrap().unwrap().freeze();
@@ -175,7 +177,7 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
 
         let z_AB = z_alpha + Scalar::from_bits( recv_z_beta.to_vec().try_into().unwrap());
         avow_prof.z_AB = z_AB;
-        avow_prof.AB = CompressedRistretto(recv_B.to_vec().try_into().unwrap()).decompress().unwrap() + A.0;
+        avow_prof.AB = vec![(CompressedRistretto(recv_B.to_vec().try_into().unwrap()).decompress().unwrap() + A.0).compress()];
         
 
         let duration_2 = start.elapsed();
@@ -271,7 +273,7 @@ async fn run_client(cfg: ClientConfig, peer: String, initiate: bool) {
 
         let z_AB = z_beta + Scalar::from_bits( recv_z_alpha.to_vec().try_into().unwrap());
         avow_prof.z_AB = z_AB;
-        avow_prof.AB = CompressedRistretto(recv_A.to_vec().try_into().unwrap()).decompress().unwrap() + B.0;
+        avow_prof.AB = vec![(CompressedRistretto(recv_A.to_vec().try_into().unwrap()).decompress().unwrap() + B.0).compress()];
         
         let duration_2 = start.elapsed();
         println!("[+] Bob finished avow in {:?}",duration_2-duration);
