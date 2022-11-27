@@ -1,9 +1,26 @@
 # Imple_notry
-To test:
+## prequiste
+> Matlab
 
-delete the \emph{performance} file
+> Install Rust via 
+ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-run run.sh
+## Clone
+> git clone --recurse-submodules git@github.com:xxsqwe/notry.git 
+
+## To test:
+
+> delete the \emph{performance} file
+
+> run experiments by ./run.sh
+
+## Primitives instantiation
+> Random Oracle: SHA256
+
+> HKDF is based on the Rust crate hkdf
 
 
-NOTE: Matlab is needed to generate the performance figure of avowal.
+> Our curve works on the Ristretto Group to eliminate cofactors
+
+
+
