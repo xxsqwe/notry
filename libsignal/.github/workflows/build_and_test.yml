@@ -1,0 +1,315 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request: # all target branches
+
+env:
+  CARGO_TERM_COLOR: always
+  CBINDGEN_VERSION: 0.20.0
+  NDK_VERSION: 21.0.6113669
+  RUST_BACKTRACE: 1
+
+jobs:
+  changes:
+    name: Classify changes
+
+    runs-on: ubuntu-latest
+
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      java: ${{ steps.filter.outputs.java }}
+      node: ${{ steps.filter.outputs.node }}
+      swift: ${{ steps.filter.outputs.swift }}
+      rust_ios: ${{ steps.filter.outputs.rust_ios }}
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          all: &all
+          - '.github/workflows/build_and_test.yml'
+          - 'bin/**'
+          - 'rust/*'
+          - 'rust/!(bridge)/**'
+          - 'rust/bridge/shared/**'
+          - 'rust-toolchain'
+          - 'Cargo.toml'
+          - 'Cargo.lock'
+          rust:
+          - *all
+          - '.clippy.toml'
+          - '.rustfmt.license-template'
+          - '.rustfmt.toml'
+          - 'rust/**' # deliberately re-include the rust/bridge/ directories
+          java:
+          - *all
+          - '.dockerignore'
+          - 'java/**'
+          - 'rust/bridge/jni/**'
+          node:
+          - *all
+          - '.nvmrc'
+          - '.prettierrc.js'
+          - 'node/**'
+          - 'rust/bridge/node/**'
+          rust_ios: &rust_ios
+          - *all
+          - 'rust/bridge/ffi/**'
+          swift:
+          - *rust_ios
+          - 'swift/**'
+          - 'LibSignalClient.podspec'
+          ignored:
+          - 'LICENSE'
+          - '*.md'
+          - '.github/FUNDING.yml'
+          - '.github/workflows/**'
+          - '.gitignore'
+
+    - name: Check pattern completeness
+      run: echo "::error file=.github/workflows/build_and_test.yml::File not included in any filter" && false
+      if: ${{ !contains(steps.filter.outputs.*, 'true') }}
+
+  rust:
+    name: Rust
+
+    runs-on: ubuntu-latest
+
+    needs: changes
+
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [nightly, stable]
+        include:
+          - version: stable
+            toolchain: "+stable"
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: sudo apt-get update && sudo apt-get install gcc-multilib g++-multilib
+
+    - name: Install Rust (nightly)
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        components: rustfmt, clippy
+        target: i686-unknown-linux-gnu
+      if: matrix.version == 'nightly'
+
+    - name: Install Rust (stable)
+      run: rustup +stable target add i686-unknown-linux-gnu
+      if: matrix.version == 'stable'
+
+    # This should be done before anything else
+    # because it also checks that the lockfile is up to date.
+    - name: Check for duplicate dependencies
+      run: ./bin/verify_duplicate_crates
+      if: matrix.version == 'nightly'
+
+    - name: Rustfmt check
+      run: cargo fmt --all -- --check
+      if: matrix.version == 'nightly'
+
+    - name: Check bridge versioning
+      run: ./bin/update_versions.py
+      if: matrix.version == 'nightly'
+
+    - name: Build
+      run: cargo ${{ matrix.toolchain }} build --workspace --verbose
+
+    - name: Run tests
+      run: cargo ${{ matrix.toolchain }} test --workspace --all-features --verbose -- -Z unstable-options --include-ignored
+
+    - name: Run tests (32-bit)
+      # Exclude signal-neon-futures because those tests run Node
+      run: cargo ${{ matrix.toolchain }} test --workspace --all-features --verbose --target i686-unknown-linux-gnu --exclude signal-neon-futures -- -Z unstable-options --include-ignored
+
+    - name: Build benches and bins
+      run: cargo ${{ matrix.toolchain }} build --benches --bins --all-features --verbose
+
+    - name: Clippy
+      run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      if: matrix.version == 'nightly'
+
+    # We check the fuzz targets on stable because they don't have lockfiles,
+    # and crates don't generally support arbitrary nightly versions.
+    # See https://github.com/dtolnay/proc-macro2/issues/307 for an example.
+
+    - name: Check that the protocol fuzz target still builds
+      run: cargo +stable check --all-targets
+      working-directory: rust/protocol/fuzz
+      env:
+        RUSTFLAGS: --cfg fuzzing
+      if: matrix.version == 'stable'
+
+    - name: Check that the attest fuzz target still builds
+      run: cargo +stable check --all-targets
+      working-directory: rust/attest/fuzz
+      env:
+        RUSTFLAGS: --cfg fuzzing
+      if: matrix.version == 'stable'
+
+  java:
+    name: Java
+
+    runs-on: ubuntu-latest
+
+    needs: changes
+
+    if: ${{ needs.changes.outputs.java == 'true' }}
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install NDK
+      run: sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "ndk;${NDK_VERSION}"
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+
+    - name: Install Android toolchains
+      run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
+
+    - name: Install pinned cbindgen
+      run: cargo +stable install cbindgen --version ${CBINDGEN_VERSION}
+
+    - name: Verify that the JNI bindings are up to date
+      run: rust/bridge/jni/bin/gen_java_decl.py --verify
+
+    - run: ./gradlew build
+      working-directory: java
+      env:
+        ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
+
+    - run: java/check_code_size.py
+
+  node:
+    name: Node
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    needs: changes
+
+    if: ${{ needs.changes.outputs.node == 'true' }}
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install nightly rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+
+    - name: Get Node version from .nvmrc
+      id: get-nvm-version
+      shell: bash
+      run: echo "::set-output name=node-version::$(cat .nvmrc)"
+
+    # install nasm compiler for boring
+    - name: Install nasm
+      if: startsWith(matrix.os, 'windows')
+      run: choco install nasm
+      shell: cmd
+
+    - uses: actions/setup-node@v2
+      with:
+        node-version: ${{ steps.get-nvm-version.outputs.node-version }}
+
+    - name: Verify that the Node bindings are up to date
+      run: rust/bridge/node/bin/gen_ts_decl.py --verify
+      if: matrix.os == 'ubuntu-latest'
+
+    - run: yarn install --frozen-lockfile
+      working-directory: node
+
+    - run: yarn tsc
+      working-directory: node
+
+    - run: yarn lint
+      if: matrix.os == 'ubuntu-latest'
+      working-directory: node
+
+    - run: yarn format -c
+      if: matrix.os == 'ubuntu-latest'
+      working-directory: node
+
+    - run: yarn test
+      working-directory: node
+
+  swift_package:
+    name: Swift Package
+
+    runs-on: ubuntu-latest
+
+    needs: changes
+
+    if: ${{ needs.changes.outputs.swift == 'true' }}
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+
+    - name: Install pinned cbindgen
+      run: cargo +stable install cbindgen --version ${CBINDGEN_VERSION}
+
+    - name: Build libsignal-ffi
+      run: swift/build_ffi.sh -d -v --verify-ffi
+
+    - name: Build Swift and run tests
+      run: swift test -v
+      working-directory: swift
+
+  swift_cocoapod:
+    name: Swift CocoaPod
+
+    runs-on: macOS-latest
+
+    needs: changes
+
+    if: ${{ needs.changes.outputs.swift == 'true' }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Run lint
+        run: swiftlint lint --strict --reporter github-actions-logging
+        working-directory: swift
+
+      - name: Check out SignalCoreKit
+        uses: actions/checkout@v2
+        with:
+          repository: signalapp/SignalCoreKit
+          path: SignalCoreKit
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+
+      - name: Add iOS targets
+        run: rustup target add x86_64-apple-ios aarch64-apple-ios aarch64-apple-ios-sim
+
+      - name: Run pod lint
+        # No import validation because it tries to build unsupported platforms (like 32-bit iOS).
+        run: pod lib lint --verbose --platforms=ios --include-podspecs=SignalCoreKit/SignalCoreKit.podspec --skip-import-validation
+        env:
+          SKIP_CATALYST: 1

@@ -1,0 +1,25 @@
+peer:bob
+peer:bob
+peer:bob
+671488 Bytes communication overhead,2.810398325s computation overhead for 1999 session keys
+335 bytes 1.405901ms per key
+[+] avow 1 scripts
+[+] overall communication of  one party:416
+[+] overall computation of  one party:14.8526ms
+[+] communication of the Judge:192
+[+] computation overhead of the Judge:0.119857ms
+[+] avow 10 scripts
+[+] overall communication of  one party:416
+[+] overall computation of  one party:13.8222ms
+[+] communication of the Judge:480
+[+] computation overhead of the Judge:0.14632ms
+[+] avow 100 scripts
+[+] overall communication of  one party:416
+[+] overall computation of  one party:14.8110ms
+[+] communication of the Judge:3360
+[+] computation overhead of the Judge:0.485511ms
+[+] avow 1000 scripts
+[+] overall communication of  one party:416
+[+] overall computation of  one party:14.907ms
+[+] communication of the Judge:32160
+[+] computation overhead of the Judge:3.594424ms

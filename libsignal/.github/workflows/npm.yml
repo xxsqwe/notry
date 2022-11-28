@@ -1,0 +1,153 @@
+name: Publish to NPM
+
+on:
+  workflow_dispatch:
+    inputs:
+      npm_tag:
+        description: 'NPM tag'
+        required: true
+        default: 'latest'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-latest, macos-11]
+        include:
+        - os: macos-11
+          arm64-rust-target: aarch64-apple-darwin
+        - os: windows-latest
+          arm64-rust-target: aarch64-pc-windows-msvc
+        # Ubuntu binaries are built using Docker, below
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install nightly rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        target: ${{ matrix.arm64-rust-target }}
+
+    # install nasm compiler for boring
+    - name: (Windows) Install nasm
+      if: startsWith(matrix.os, 'windows')
+      run: choco install nasm
+      shell: cmd
+
+    - name: Get Node version from .nvmrc
+      id: get-nvm-version
+      shell: bash
+      run: echo "::set-output name=node-version::$(cat .nvmrc)"
+
+    - uses: actions/setup-node@v2
+      with:
+        node-version: ${{ steps.get-nvm-version.outputs.node-version }}
+
+    - run: npx yarn install --ignore-scripts --frozen-lockfile
+      working-directory: node
+
+    - name: Build for arm64
+      run: npx prebuildify --napi -t ${{ steps.get-nvm-version.outputs.node-version }} --arch arm64
+      working-directory: node
+
+    - name: Build for the host (should be x64)
+      run: npx prebuildify --napi -t ${{ steps.get-nvm-version.outputs.node-version }}
+      working-directory: node
+
+    - name: Upload library
+      uses: actions/upload-artifact@v2
+      with:
+        name: libsignal_client (${{matrix.os}})
+        path: node/prebuilds/*
+
+  build-docker:
+    name: Build (Ubuntu via Docker)
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: node/docker-prebuildify.sh
+
+    - name: Upload library
+      uses: actions/upload-artifact@v2
+      with:
+        name: libsignal_client (ubuntu-docker)
+        path: node/prebuilds/*
+
+  verify-rust:
+    name: Verify Node bindings
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install nightly rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+
+    - name: Verify that the Node bindings are up to date
+      run: rust/bridge/node/bin/gen_ts_decl.py --verify
+
+  publish:
+    name: Publish
+
+    runs-on: ubuntu-latest
+
+    needs: [build, build-docker, verify-rust]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Get Node version from .nvmrc
+      id: get-nvm-version
+      shell: bash
+      run: echo "::set-output name=node-version::$(cat .nvmrc)"
+
+    - uses: actions/setup-node@v2
+      with:
+        node-version: ${{ steps.get-nvm-version.outputs.node-version }}
+
+    - name: Download built libraries
+      id: download
+      uses: actions/download-artifact@v2
+      with:
+        path: artifacts
+
+    - name: Copy libraries
+      run: mkdir node/prebuilds && mv ${{ steps.download.outputs.download-path }}/*/* node/prebuilds && find node/prebuilds
+
+    - run: yarn install --frozen-lockfile
+      working-directory: node
+
+    - run: yarn tsc
+      working-directory: node
+
+    - run: yarn lint
+      working-directory: node
+
+    - run: yarn format -c
+      working-directory: node
+
+    - run: yarn test
+      working-directory: node
+      env:
+        PREBUILDS_ONLY: 1
+
+    - name: Publish to NPM
+      uses: JS-DevTools/npm-publish@v1
+      with:
+        token: ${{ secrets.NPM_TOKEN }}
+        tag: ${{ github.event.inputs.npm_tag }}
+        package: node/package.json
+        access: "public"
