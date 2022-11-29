@@ -41,7 +41,7 @@ We specially acknowledge [Dalke Cryptograph](http://dalek.rs/#home) and [CONEC](
 
 > Our curve works on the Ristretto Group to eliminate cofactors
 # Using
-## prequiste
+## Prerequisite
 ===============================================================================
 
 > Python3
