@@ -17,20 +17,25 @@ We specially acknowledge [Dalke Cryptograph](http://dalek.rs/#home) and [CONEC](
 ## Directory Structure
 ===============================================================================
 - certs - certificates for the coordinator(also for the Judge)
-- examples - evaluation code for avowal and key exchange protocl
-- examples/avow.rs - evaluation code for avowal
-- examples/coord.rs - evaluation code for coordinator(also for the avowal Judge)
-- examples/gencert.rs - a script for generating certificate of the Judge
-- examples/rachet.rs - integreted code for key exchange evaluation. Participants are indicated by their roles passing to this program.
+-  examples - evaluation code for avowal and key exchange protocl
+     -  examples/avow.rs - evaluation code for avowal
+     - examples/coord.rs - evaluation code for coordinator(also for the avowal Judge)
+     - examples/gencert.rs - a script for generating certificate of the Judge
+     - examples/rachet.rs - integreted code for key exchange evaluation. Participants are indicated by their roles passing to this program.
 - src - source code for the development branch
-- src/avow.rs - implementation of avowal
-- src/key_exchange - implementation of the key exchange protocol
-- src/lib.rs - interfaces
-- src/macros.rs - Internal macros for defining points addition/subtraction
-- src/network.rs - network interfaces for communication
-- src/sok.rs - implementation of the Signature-of-Knowledge
-- src/tests.rs - test codes for network channels, SoK generation, SoK verification, Simulator of the Schnorr protocol(gen/verify)
-- src/utils.rs - constants deifinition. Including the pk of the Judege, Publickey(Privatekey) class implementations, three generators we used in our protocol, hash interface, and AES encryption/decrytion in the avowal phase.
+     - src/avow.rs - implementation of avowal
+     - src/key_exchange - implementation of the key exchange protocol
+     - src/lib.rs - interfaces
+     - src/macros.rs - Internal macros for defining points addition/subtraction
+     - src/network.rs - network interfaces for communication
+     - src/sok.rs - implementation of the Signature-of-Knowledge
+     - src/tests.rs - test codes for network channels, SoK generation, SoK verification, Simulator of the Schnorr protocol(gen/verify)
+     - src/utils.rs - constants deifinition. Including the pk of the Judege, Publickey(Privatekey) class implementations, three generators we used in our protocol, hash interface, and AES encryption/decrytion in the avowal phase.
+- libsignal - comparision experiment, library of **Signal** Protocol
+     - libsignal/rust/protocol/examples/ratchet.rs - key exchange evaluation scirpt of X3DH and Double Ratchet in key exchange.
+- target - after running cargo build, executable files will be placed in this automatically created folder.
+     - target/release/examples/avow - executable file of **avowal** evaluation
+     - target/release/examples/rachet - executable file of **DAKE** evaluation
 
 ## Primitives instantiation
 ===============================================================================
@@ -39,7 +44,7 @@ We specially acknowledge [Dalke Cryptograph](http://dalek.rs/#home) and [CONEC](
 
 > HKDF is based on the Rust crate hkdf
 
-> Our curve works on the Ristretto Group to eliminate cofactors
+> Our implementation works on the special Ristretto Group, a ECC group without cofactors
 # Using
 ## Prerequisite
 ===============================================================================
@@ -66,7 +71,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 cargo test
 ```
-> delete the \emph{performance} file
+> delete the  **performance** file
 
 > run experiments to reprocude our results 
 ```
