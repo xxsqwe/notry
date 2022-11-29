@@ -33,14 +33,17 @@ We specially acknowledge [Dalke Cryptograph](http://dalek.rs/#home) and [CONEC](
 - src/utils.rs - constants deifinition. Including the pk of the Judege, Publickey(Privatekey) class implementations, three generators we used in our protocol, hash interface, and AES encryption/decrytion in the avowal phase.
 
 ## Primitives instantiation
+===============================================================================
+
 > Random Oracle: SHA256
 
 > HKDF is based on the Rust crate hkdf
 
-
 > Our curve works on the Ristretto Group to eliminate cofactors
 # Using
 ## prequiste
+===============================================================================
+
 > Python3
 
 ```
@@ -56,6 +59,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
  git clone --recurse-submodules git@github.com:xxsqwe/notry.git 
 ```
 ## To test:
+===============================================================================
+
 
 > test implementations by 
 ```
