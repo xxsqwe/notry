@@ -1,26 +1,86 @@
-# Imple_notry
-## prequiste
-> Matlab
+# notry(Not on the Record yet) - Deniable Messaging with Retroactive Avowal
 
-> Install Rust via 
- curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+## Device for reproduction
+NOTE: this repo will not work under the MACBOOK M1/M2 chip. So be aware that to make it runs on an Intel machine.
 
-## Clone
-> git clone --recurse-submodules git@github.com:xxsqwe/notry.git 
+## Overview
+===============================================================================
 
-## To test:
+Our implementation is written in Rust, supports both single- and
+multiple-message transcript avowal and follows community best
+practices—though we note our code is NOT YET READY for production
+use. For our implementation, we set the security parameter to pro-
+vide 256-bit equivalent security. 
 
-> delete the \emph{performance} file
+All experiments were performed on an Intel 12th generation core i7-12700K pinned to 3.6GHz with
+32GB RAM.
 
-> run experiments by ./run.sh
+We specially acknowledge [Dalke Cryptograph](http://dalek.rs/#home) and [CONEC](https://github.com/kwantam/conec) library.
+
+## Directory Structure
+===============================================================================
+- certs - certificates for the coordinator(also for the Judge)
+-  examples - evaluation code for avowal and key exchange protocl
+     -  examples/avow.rs - evaluation code for avowal
+     - examples/coord.rs - evaluation code for coordinator(also for the avowal Judge)
+     - examples/gencert.rs - a script for generating certificate of the Judge
+     - examples/rachet.rs - integreted code for key exchange evaluation. Participants are indicated by their roles passing to this program.
+- src - source code for the development branch
+     - src/avow.rs - implementation of avowal
+     - src/key_exchange - implementation of the key exchange protocol
+     - src/lib.rs - interfaces
+     - src/macros.rs - Internal macros for defining points addition/subtraction
+     - src/network.rs - network interfaces for communication
+     - src/sok.rs - implementation of the Signature-of-Knowledge
+     - src/tests.rs - test codes for network channels, SoK generation, SoK verification, Simulator of the Schnorr protocol(gen/verify)
+     - src/utils.rs - constants deifinition. Including the pk of the Judege, Publickey(Privatekey) class implementations, three generators we used in our protocol, hash interface, and AES encryption/decrytion in the avowal phase.
+- libsignal - comparision experiment, library of **Signal** Protocol
+     - libsignal/rust/protocol/examples/ratchet.rs - key exchange evaluation scirpt of X3DH and Double Ratchet in key exchange.
+- target - after running cargo build, executable files will be placed in this automatically created folder.
+     - target/release/examples/avow - executable file of **avowal** evaluation
+     - target/release/examples/rachet - executable file of **DAKE** evaluation
 
 ## Primitives instantiation
+===============================================================================
+
 > Random Oracle: SHA256
 
 > HKDF is based on the Rust crate hkdf
 
+> Our implementation works on the special Ristretto Group, a ECC group without cofactors
+# Using
+## Prerequisite
+===============================================================================
 
-> Our curve works on the Ristretto Group to eliminate cofactors
+> Python3
+
+```
+pip3 install matplotlib, matplotlib_latex_bridge
+``` 
+
+> Install Rust via 
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+## Clone
+```
+ git clone --recurse-submodules git@github.com:xxsqwe/notry.git 
+```
+## To test:
+===============================================================================
 
 
+> test implementations
+```
+cd notry
 
+cargo test
+```
+> delete the  **performance** file
+```
+rm performance
+```
+> run experiments to reprocude our results 
+```
+./run.sh
+```

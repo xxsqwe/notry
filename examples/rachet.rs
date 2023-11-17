@@ -88,7 +88,7 @@ async fn ratchet(cfg: ClientConfig, peer: String, initiate: bool) {
         eprintln!("Received.");
         (send, recv)
     };
-    
+    // the rounds  variable indicates the number of session keys to be established
     let rounds=1000;
 
     if peer.contains("ob"){
