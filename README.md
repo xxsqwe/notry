@@ -62,9 +62,15 @@ pip3 install matplotlib, matplotlib_latex_bridge
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
+> proceed with default installation
+> switch to a stable version
+"""
+rustup install nightly-2022-06-22
+rustup default nightly-2022-06-22
+"""
 ## Clone
 ```
- git clone -b main https://github.com/xxsqwe/notry.git
+ git clone --recurse-submodules https://github.com/xxsqwe/notry.git
 ```
 ## To test:
 ===============================================================================
@@ -89,7 +95,7 @@ rm performance
 ===============================================================================
 > Figure 7 in our paper is reproduced and saved as performance.png
 
->
+> Results of Table 1 is reflected in the first 7 lines of the performance file.
 
 ## Customized Evaluation:
 ===============================================================================
