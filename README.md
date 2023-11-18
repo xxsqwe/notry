@@ -1,30 +1,28 @@
 # notry(Not on the Record yet) - Deniable Messaging with Retroactive Avowal
 
 ## Device for reproduction
-NOTE: this repo will **NOT** work under the MACBOOK M1/M2 chip. 
+NOTE: This repo will **NOT** work under the Apple MacBook M1/M2 chip. 
 
 ## Overview
 ===============================================================================
 
 Our implementation is written in Rust, supports both single- and
-multiple-message transcript avowal and follows community best
+multiple-message transcript avowal, and follows community best
 practices—though we note our code is NOT YET READY for production
-use. For our implementation, we set the security parameter to pro-
-vide 256-bit equivalent security. 
+use. For our implementation, we set the security parameter to provide 256-bit equivalent security. 
 
 All experiments were performed on an Intel 12th generation core i7-12700K pinned to 3.6GHz with
 32GB RAM.
-
-We specially acknowledge [Dalke Cryptograph](http://dalek.rs/#home) and [CONEC](https://github.com/kwantam/conec) library.
+We especially acknowledge [Dalke](http://dalek.rs/#home) Cryptograph](http://dalek.rs/#home) and [CONEC](https://github.com/kwantam/conec) library.
 
 ## Directory Structure
 ===============================================================================
 - certs - certificates for the coordinator(also for the Judge)
--  examples - evaluation code for avowal and key exchange protocl
-     - examples/avow.rs - evaluation code for avowal, timers are setted in this code.
+-  examples - evaluation code for avowal and key exchange protocol
+     - examples/avow.rs - evaluation code for avowal, timers are set in this code.
      - examples/coord.rs - evaluation code for coordinator(also for the avowal Judge)
-     - examples/gencert.rs - a script for generating certificate of the Judge
-     - examples/rachet.rs - integreted code for key exchange evaluation. Parties can either be Alice or Bob when running this program. Also timers are setted in this code.
+     - examples/gencert.rs - a script for generating a certificate of the Judge
+examples/rachet.rs - integrated code for key exchange evaluation. Parties can either be Alice or Bob when running this program. Also, timers are set in this code.
 - src - source code for the main branch
      - src/avow.rs - implementation of avowal
      - src/key_exchange - implementation of the key exchange protocol
@@ -33,9 +31,9 @@ We specially acknowledge [Dalke Cryptograph](http://dalek.rs/#home) and [CONEC](
      - src/network.rs - network interfaces for communication
      - src/sok.rs - implementation of the Signature-of-Knowledge
      - src/tests.rs - test codes for network channels, SoK generation, SoK verification, Simulator of the Schnorr protocol(gen/verify)
-     - src/utils.rs - constants deifinition. Including the pk of the Judege, Publickey(Privatekey) class implementations, three generators we used in our protocol, hash interface, and AES encryption/decrytion in the avowal phase.
-- libsignal - comparision experiment, library of the **Signal** Protocol
-     - libsignal/rust/protocol/examples/ratchet.rs - We talioreed this key exchange evaluation scirpt of X3DH and Double Ratchet in key exchange.
+     - src/utils.rs - constants deifinition. Including the pk of the Judege, Publickey(Privatekey) class implementations, three generators we used in our protocol, hash interface, and AES encryption/decryption in the avowal phase.
+libsignal - comparison experiment, the library of the **Signal** Protocol
+     - libsignal/rust/protocol/examples/ratchet.rs - We tailored this key exchange evaluation script of X3DH and Double Ratchet in the key exchange.
 - target - after running cargo build, executable files will be placed in this automatically created folder.
      - target/release/examples/avow - executable file of **avowal** evaluation
      - target/release/examples/rachet - executable file of **DAKE** evaluation
@@ -48,7 +46,7 @@ We specially acknowledge [Dalke Cryptograph](http://dalek.rs/#home) and [CONEC](
 > HKDF is based on the Rust crate hkdf
 
 > Our implementation works on the special Ristretto Group, a ECC group without cofactors
-# Using
+# TO USE
 ## Prerequisite
 ===============================================================================
 
