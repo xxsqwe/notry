@@ -1,72 +1,18 @@
 peer:bob
-peer:bob
-peer:bob
-peer:bob
+[+]671488 Bytes communication overhead,3.17033335s computation overhead for 1999 session keys
+[+]335 bytes 1.585959ms per key
 [+] avow 1 scripts
 [+] overall communication of  one party:416
-[+] overall computation of  one party:2288ms
+[+] overall computation of  one party:2554ms
 [+] communication of the Judge:192
-[+] computation overhead of the Judge:221.487µs
+[+] computation overhead of the Judge:321.113µs
 [+] avow 10 scripts
 [+] overall communication of  one party:416
-[+] overall computation of  one party:2290ms
+[+] overall computation of  one party:3003ms
 [+] communication of the Judge:480
-[+] computation overhead of the Judge:264.939µs
+[+] computation overhead of the Judge:267.621µs
 [+] avow 100 scripts
 [+] overall communication of  one party:416
-[+] overall computation of  one party:2324ms
+[+] overall computation of  one party:2990ms
 [+] communication of the Judge:3360
-[+] computation overhead of the Judge:698.388µs
-[+] avow 1000 scripts
-[+] overall communication of  one party:416
-[+] overall computation of  one party:2288ms
-[+] communication of the Judge:32160
-[+] computation overhead of the Judge:5.061715ms
-peer:bob
-[+] avow 1 scripts
-[+] overall communication of  one party:416
-[+] overall computation of  one party:2317ms
-[+] communication of the Judge:192
-[+] computation overhead of the Judge:221.17µs
-[+] avow 10 scripts
-[+] overall communication of  one party:416
-[+] overall computation of  one party:2293ms
-[+] communication of the Judge:480
-[+] computation overhead of the Judge:265.804µs
-[+] avow 100 scripts
-[+] overall communication of  one party:416
-[+] overall computation of  one party:2292ms
-[+] communication of the Judge:3360
-[+] computation overhead of the Judge:699.406µs
-peer:bob
-[+] avow 1 scripts
-[+] overall communication of  one party:416
-[+] overall computation of  one party:2306ms
-[+] communication of the Judge:192
-[+] computation overhead of the Judge:221.971µs
-peer:bob
-[+] avow 1 scripts
-[+] overall communication of  one party:416
-[+] overall computation of  one party:2304ms
-[+] communication of the Judge:192
-[+] computation overhead of the Judge:222.287µs
-peer:bob
-[+] avow 1 scripts
-[+] overall communication of  one party:416
-[+] overall computation of  one party:2302ms
-[+] communication of the Judge:192
-[+] computation overhead of the Judge:221.845µs
-tests in 1000 rounds
-21.515µs per key generation
-305.085µs per x3dh
-peer:bob
-671488 Bytes communication overhead,2.809103506s computation overhead for 1999 session keys
-335 bytes 1.405254ms per key
-[+] avow 1 scripts
-[+] overall communication of  one party:416
-[+] overall computation of  one party:2294ms
-[+] communication of the Judge:192
-[+] computation overhead of the Judge:221.876µs
-tests in 1000 rounds
-23.894µs per key generation
-317.772µs per x3dh
+[+] computation overhead of the Judge:700.097µs

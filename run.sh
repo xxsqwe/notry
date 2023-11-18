@@ -35,7 +35,7 @@ echo "Generating keys(via key exchangea)"
 ./target/release/examples/avow 1000 >> performance
 
 echo "1000 scripts avowed"
-matlab -nodisplay -nosplash -nodesktop -r "run('figure.m');exit;"
+
 echo "Test key exchange of signal"
 cd libsignal/rust/protocol/
 cargo build --release --examples

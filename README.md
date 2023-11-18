@@ -21,11 +21,11 @@ We specially acknowledge [Dalke Cryptograph](http://dalek.rs/#home) and [CONEC](
 ===============================================================================
 - certs - certificates for the coordinator(also for the Judge)
 -  examples - evaluation code for avowal and key exchange protocl
-     -  examples/avow.rs - evaluation code for avowal
+     - examples/avow.rs - evaluation code for avowal
      - examples/coord.rs - evaluation code for coordinator(also for the avowal Judge)
      - examples/gencert.rs - a script for generating certificate of the Judge
-     - examples/rachet.rs - integreted code for key exchange evaluation. Participants are indicated by their roles passing to this program.
-- src - source code for the development branch
+     - examples/rachet.rs - integreted code for key exchange evaluation. Participants are indicated by their roles passing to this program. Also timers are setted in this code.
+- src - source code for the main branch
      - src/avow.rs - implementation of avowal
      - src/key_exchange - implementation of the key exchange protocol
      - src/lib.rs - interfaces
@@ -34,8 +34,8 @@ We specially acknowledge [Dalke Cryptograph](http://dalek.rs/#home) and [CONEC](
      - src/sok.rs - implementation of the Signature-of-Knowledge
      - src/tests.rs - test codes for network channels, SoK generation, SoK verification, Simulator of the Schnorr protocol(gen/verify)
      - src/utils.rs - constants deifinition. Including the pk of the Judege, Publickey(Privatekey) class implementations, three generators we used in our protocol, hash interface, and AES encryption/decrytion in the avowal phase.
-- libsignal - comparision experiment, library of **Signal** Protocol
-     - libsignal/rust/protocol/examples/ratchet.rs - key exchange evaluation scirpt of X3DH and Double Ratchet in key exchange.
+- libsignal - comparision experiment, library of the **Signal** Protocol
+     - libsignal/rust/protocol/examples/ratchet.rs - We talioreed this key exchange evaluation scirpt of X3DH and Double Ratchet in key exchange.
 - target - after running cargo build, executable files will be placed in this automatically created folder.
      - target/release/examples/avow - executable file of **avowal** evaluation
      - target/release/examples/rachet - executable file of **DAKE** evaluation
@@ -64,7 +64,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 ## Clone
 ```
- git clone --recurse-submodules git@github.com:xxsqwe/notry.git 
+ git clone -b main https://github.com/xxsqwe/notry.git
 ```
 ## To test:
 ===============================================================================

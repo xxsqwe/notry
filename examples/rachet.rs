@@ -171,8 +171,8 @@ async fn ratchet(cfg: ClientConfig, peer: String, initiate: bool) {
             //println!("[x] Communication overhead per key:{}",comm_size/2);
             size_total+=comm_size;
         }
-        println!("{} Bytes communication overhead,{:?} computation overhead for {} session keys",size_total,computation_time,rounds*2-1);
-        println!("{} bytes {:?} per key",size_total/(rounds*2-1),computation_time/(rounds*2-1).try_into().unwrap());
+        println!("[+] {} Bytes communication overhead, {:?} computation overhead for {} session keys",size_total,computation_time,rounds*2-1);
+        println!("[+] {} bytes {:?} per key",size_total/(rounds*2-1),computation_time/(rounds*2-1).try_into().unwrap());
     }
 
     else{

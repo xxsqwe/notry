@@ -66,8 +66,8 @@ fn main(){
         let time_verify = start.elapsed()-time_avow_gen;
 
         println!("[+] avow {} scripts",rounds);
-        println!("[+] overall communication of  one party:{}",comm_size);
-        println!("[+] overall computation of  one party:{:?}ms",time_avow_gen.as_millis());
+        println!("[+] overall communication of one party:{}",comm_size);
+        println!("[+] overall computation of one party:{:?}ms",time_avow_gen.as_millis());
         //println!("comm judge:{}",comm_size_judge);
         println!("[+] communication of the Judge:{:?}", size_of::<CompressedRistretto>()+comm_size_judge+32*4);
         println!("[+] computation overhead of the Judge:{:?}",time_verify);
