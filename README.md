@@ -50,10 +50,10 @@ libsignal - comparison experiment, the library of the **Signal** Protocol
 ## Prerequisite
 ===============================================================================
 
-> Python3
+> Python3 and the plot library
 
 ```
-pip3 install matplotlib, matplotlib_latex_bridge
+pip3 install matplotlib
 ``` 
 
 > Install Rust via 
@@ -91,7 +91,7 @@ rm performance
 
 ## Interpret results:
 ===============================================================================
-> Figure 7 in our paper is reproduced and saved as performance.png. Note that on the test devices, the generated diagram wont be the same. But the trend is alway hold.
+> Figure 7 in our paper is reproduced and saved as performance.png. Note that on different test devices, the generated diagram wont be the same. But the trend is alway hold.
 
 > Results of Table 1 is reflected in the first 7 lines of the performance file.
 
