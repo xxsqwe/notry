@@ -62,10 +62,10 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 > proceed with default installation
 > switch to a stable version
-"""
+```
 rustup install nightly-2022-06-22
 rustup default nightly-2022-06-22
-"""
+```
 ## Clone
 ```
  git clone --recurse-submodules https://github.com/xxsqwe/notry.git
@@ -100,6 +100,6 @@ rm performance
 > To collect more results for **key exchange** evaluation, Try to modify the **round** variable in examples/rachet.rs: 92
 
 > To collect more results for **avow** evaluation, you can simply pass the number of transcripts to 
-"""
+```
 ./target/release/examples/avow <number of scripts>
-"""
+```
