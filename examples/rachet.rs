@@ -22,7 +22,7 @@ use aes_gcm::{
 #[allow(unused_imports)]
 
 use aes_gcm::aead::generic_array::GenericArray;
-
+use rand::rngs::OsRng;
 use curve25519_dalek::{scalar::Scalar};
 
 use notry::{sok::{sok,sok_verify,SigmaOr}};
@@ -60,6 +60,7 @@ fn main() {
     cfg.set_ca_from_file(&cpath).unwrap();
 
     ratchet(cfg.clone(),peer.clone(),initiate);
+    sok_eval();
 }
 
 #[allow(non_snake_case,unused_variables,unused_assignments)]
@@ -163,19 +164,19 @@ async fn ratchet(cfg: ClientConfig, peer: String, initiate: bool) {
                 else{
                     ([0u8;32],[0u8;32],Scalar::zero())
                 };
-            let duration = start.elapsed()-starttime;
+            let duration = start.elapsed()-starttime; //note this includes network delay
             computation_time+=duration;
             //println!("[+] Alice finished key exchange in {:?}",duration/2);
             //println!("[+] alice key_{} established:{:?}",i,K_alice);
             //println!("[+] bob key_{} established:{:?}",i,K_bob);
-            //println!("[x] Communication overhead per key:{}",comm_size/2);
+            //println!("[+] Communication overhead per key:{}",comm_size/2);
             size_total+=comm_size;
         }
-        println!("[+] {} Bytes communication overhead, {:?} computation overhead for {} session keys",size_total,computation_time,rounds*2-1);
-        println!("[+] {} bytes {:?} per key",size_total/(rounds*2-1),computation_time/(rounds*2-1).try_into().unwrap());
+        println!("[+] NOTRY key exchcange: {} Bytes communication overhead, {:?} computation overhead for {} session keys",size_total,computation_time,rounds*2-1);
+        println!("[+] Per key: {} bytes, {:?}, ",size_total/(rounds*2-1),computation_time/(rounds*2-1).try_into().unwrap());
     }
 
-    else{
+    else{  
         //Bob
         let start = Instant::now();
 
@@ -256,7 +257,40 @@ async fn ratchet(cfg: ClientConfig, peer: String, initiate: bool) {
             size_total+=comm_size;
 
         }
-    //println!("{} Bytes communication overhead for {} session keys",size_total,4);
-
+    
+    }
+    
 }
+fn sok_eval(){
+    
+    let rounds = 1000;
+    let mut sok_gen_time = Duration::new(0, 0);
+    let mut sok_verify_time = Duration::new(0, 0);
+    let start = Instant::now();
+    let mut size_total = 0;
+    let mut starttime= Duration::new(0, 0);
+    //println!("{} Bytes communication overhead for {} session keys",size_total,4);
+    for _i in 0..rounds{
+        let secret_a = StaticSecret::new(&mut OsRng);
+        let A = PublicKey::from(&secret_a);
+
+        let secret_b = StaticSecret::new(&mut OsRng);
+        let B = PublicKey::from(&secret_b);
+
+        let sk = StaticSecret::new(&mut OsRng);
+        let pk = &sk.0 * &RISTRETTO_BASEPOINT2.decompress().unwrap();
+
+        starttime = start.elapsed();
+        let signature_of_knowledge = sok(A.clone().try_into().unwrap(),B,PublicKey(pk),secret_b.clone(),sk.clone(),Choice::from(1));
+        sok_gen_time += start.elapsed()-starttime;
+        
+        starttime = start.elapsed();
+        assert_eq!(true,sok_verify(signature_of_knowledge.clone(),Choice::from(1)));
+        sok_verify_time+=start.elapsed()-starttime;
+
+        size_total += signature_of_knowledge[0].size();
+       
+    }
+    println!("[+] average sok gen time: {:?}, average sok verify time:{:?}, average sok size: {:?}", sok_gen_time/rounds.try_into().unwrap(),sok_verify_time/rounds.try_into().unwrap(),size_total/rounds);
+
 }

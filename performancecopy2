@@ -1,0 +1,53 @@
+peer:bob
+[+] 671488 Bytes communication overhead,3.17033335s computation overhead for 1999 session keys
+[+] 335 bytes 1.585959ms per key
+[+] tests in 1000 rounds
+[+] 25.214µs per key generation
+[+] 326.003µs per x3dh
+[+] avow 1 scripts
+[+] overall communication of  one party:416
+[+] overall computation of  one party:2554ms
+[+] communication of the Judge:192
+[+] computation overhead of the Judge:321.113µs
+[+] avow 10 scripts
+[+] overall communication of  one party:416
+[+] overall computation of  one party:3003ms
+[+] communication of the Judge:480
+[+] computation overhead of the Judge:267.621µs
+[+] avow 100 scripts
+[+] overall communication of  one party:416
+[+] overall computation of  one party:2990ms
+[+] communication of the Judge:3360
+[+] computation overhead of the Judge:700.097µs
+[+] avow 1000 scripts
+[+] overall communication of  one party:416
+[+] overall computation of  one party:2926ms
+[+] communication of the Judge:32160
+[+] computation overhead of the Judge:5.623537ms
+peer:bob
+[+] 671488 Bytes communication overhead, 3.893892961s computation overhead for 1999 session keys
+[+] 335 bytes 1.94792ms per key
+[+] testing key exchange in 1000 rounds
+[+] 28.076µs per key generation
+[+] 396.195µs per x3dh
+[+] avow 1 scripts
+[+] overall communication of one party:416
+[+] overall computation of one party:2872ms
+[+] communication of the Judge:192
+[+] computation overhead of the Judge:222.84µs
+[+] avow 10 scripts
+[+] overall communication of one party:416
+[+] overall computation of one party:2682ms
+[+] communication of the Judge:480
+[+] computation overhead of the Judge:265.29µs
+[+] avow 100 scripts
+[+] overall communication of one party:416
+[+] overall computation of one party:2391ms
+[+] communication of the Judge:3360
+[+] computation overhead of the Judge:699.394µs
+[+] avow 1000 scripts
+[+] overall communication of  one party:416
+[+] overall computation of  one party:2926ms
+[+] communication of the Judge:32160
+[+] computation overhead of the Judge:5.623537ms
+

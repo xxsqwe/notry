@@ -1,7 +1,7 @@
 # notry(Not on the Record yet) - Deniable Messaging with Retroactive Avowal
 
 ## Device for reproduction
-NOTE: this repo will not work under the MACBOOK M1/M2 chip. So be aware that to make it runs on an Intel machine.
+NOTE: this repo will **NOT** work under the MACBOOK M1/M2 chip. 
 
 ## Overview
 ===============================================================================
@@ -21,10 +21,10 @@ We specially acknowledge [Dalke Cryptograph](http://dalek.rs/#home) and [CONEC](
 ===============================================================================
 - certs - certificates for the coordinator(also for the Judge)
 -  examples - evaluation code for avowal and key exchange protocl
-     - examples/avow.rs - evaluation code for avowal
+     - examples/avow.rs - evaluation code for avowal, timers are setted in this code.
      - examples/coord.rs - evaluation code for coordinator(also for the avowal Judge)
      - examples/gencert.rs - a script for generating certificate of the Judge
-     - examples/rachet.rs - integreted code for key exchange evaluation. Participants are indicated by their roles passing to this program. Also timers are setted in this code.
+     - examples/rachet.rs - integreted code for key exchange evaluation. Parties can either be Alice or Bob when running this program. Also timers are setted in this code.
 - src - source code for the main branch
      - src/avow.rs - implementation of avowal
      - src/key_exchange - implementation of the key exchange protocol
@@ -84,3 +84,18 @@ rm performance
 ```
 ./run.sh
 ```
+
+## Interpret results:
+===============================================================================
+> Figure 7 in our paper is reproduced and saved as performance.png
+
+>
+
+## Customized Evaluation:
+===============================================================================
+> To collect more results for **key exchange** evaluation, Try to modify the **round** variable in examples/rachet.rs: 92
+
+> To collect more results for **avow** evaluation, you can simply pass the number of transcripts to 
+"""
+./target/release/examples/avow <number of scripts>
+"""

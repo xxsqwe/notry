@@ -1,18 +1,17 @@
 peer:bob
-[+]671488 Bytes communication overhead,3.17033335s computation overhead for 1999 session keys
-[+]335 bytes 1.585959ms per key
+[+] NOTRY key exchcange: 671488 Bytes communication overhead, 2.896374181s computation overhead for 1999 session keys
+[+] Per key: 335 bytes, 1.448911ms, 
+[+] average sok gen time: 321.627µs, average sok verify time:444.395µs, average sok size: 256
+[+] Signal protocol: testing key exchange in 1000 rounds
+[+] 20.928µs per key generation
+[+] 296.192µs per x3dh
 [+] avow 1 scripts
-[+] overall communication of  one party:416
-[+] overall computation of  one party:2554ms
+[+] overall communication of one party:416
+[+] overall computation of one party:2274ms
 [+] communication of the Judge:192
-[+] computation overhead of the Judge:321.113µs
+[+] computation overhead of the Judge:222.425µs
 [+] avow 10 scripts
-[+] overall communication of  one party:416
-[+] overall computation of  one party:3003ms
+[+] overall communication of one party:416
+[+] overall computation of one party:2753ms
 [+] communication of the Judge:480
-[+] computation overhead of the Judge:267.621µs
-[+] avow 100 scripts
-[+] overall communication of  one party:416
-[+] overall computation of  one party:2990ms
-[+] communication of the Judge:3360
-[+] computation overhead of the Judge:700.097µs
+[+] computation overhead of the Judge:287.439µs
