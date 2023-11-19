@@ -1,8 +1,15 @@
-# notry(Not on the Record yet) - Deniable Messaging with Retroactive Avowal
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
+
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+
+
+# notry (Not on the Record yet) - Deniable Messaging with Retroactive Avowal
 
 ## Device for reproduction
 NOTE: This repo will **NOT** work under the Apple MacBook M1/M2 chip. 
-
+Tested on Apple Macbook Intel chip, Thinkpad, and the artifact VM Ubuntu 22.04 machine.
 ## Overview
 ===============================================================================
 
@@ -53,6 +60,9 @@ libsignal - comparison experiment, the library of the **Signal** Protocol
 > Python3 and the plot library
 
 ```
+sudo apt isntall python3-pip
+```
+```
 pip3 install matplotlib
 ``` 
 
@@ -64,6 +74,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 > switch to a stable version
 ```
 rustup install nightly-2022-06-22
+```
+```
 rustup default nightly-2022-06-22
 ```
 ## Clone
@@ -77,7 +89,8 @@ rustup default nightly-2022-06-22
 > test implementations
 ```
 cd notry
-
+```
+```
 cargo test
 ```
 > delete the  **performance** file
