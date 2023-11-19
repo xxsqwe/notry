@@ -24,7 +24,7 @@ Rust version should be nightly-2022-06-22
 
 
 ### Estimated Time and Storage Consumption
-Maxium few minutes, hundreds of MB storage after compilation
+Maxium 10 minutes, hundreds of MB storage after compilation
 
 ## Environment
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
