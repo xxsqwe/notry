@@ -1,8 +1,8 @@
 #!/bin/bash
 rm performance
 
-rustup install nightly-2022-06-22-x86_64-apple-darwin
-rustup default nightly-2022-06-22-x86_64-apple-darwin
+rustup install nightly-2022-06-22
+rustup default nightly-2022-06-22
 
 echo "Library Test"
 cargo test --release
@@ -22,25 +22,25 @@ cargo build --release --examples
 
 cd ../../../
 echo "avow 1 transcript"
-echo "Generating keys(via key exchangea)"
+echo "Generating keys(via key exchange)"
 
 ./target/release/examples/avow 1 >> performance
 
 echo "1 script avowed"
 echo "avow 10 transcript"
-echo "Generating keys(via key exchangea)"
+echo "Generating keys(via key exchange)"
 
 #./target/release/examples/avow 10 >> performance
 
 echo "10 scripts avowed"
 echo "avow 100 transcript"
-echo "Generating keys(via key exchangea)"
+echo "Generating keys(via key exchange)"
 
 #./target/release/examples/avow 100 >> performance
 
 echo "100 scripts avowed"
 echo "avow 1000 transcript"
-echo "Generating keys(via key exchangea)"
+echo "Generating keys(via key exchange)"
 
 #./target/release/examples/avow 1000 >> performance
 
