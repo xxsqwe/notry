@@ -20,7 +20,7 @@ s = float(re.findall(r'[-+]?(?:\d*\.*\d+)', lines[8])[0])
 s1 = float(re.findall(r'[-+]?(?:\d*\.*\d+)', lines[13])[0]) 
 s2 = float(re.findall(r'[-+]?(?:\d*\.*\d+)', lines[18])[0])
 s3 = float(re.findall(r'[-+]?(?:\d*\.*\d+)', lines[23])[0])
-y1 = np.array([s/1000,s1/1000,s2/1000,s3])
+y1 = np.array([s,s1,s2,s3])
 
 s = float(re.findall(r'[-+]?(?:\d*\.*\d+)', lines[7])[0])
 s1 = float(re.findall(r'[-+]?(?:\d*\.*\d+)', lines[12])[0]) 
