@@ -102,6 +102,8 @@ async fn ratchet(cfg: ClientConfig, peer: String, initiate: bool) {
         let mut size_total = 0;
         let mut computation_time=Duration::new(0, 0);
         let mut start = Instant::now();
+        let mut gen_time= Duration::new(0,0);
+        let mut duration = Duration::new(0,0);
     for i in 0..rounds
     {
         //Alice
@@ -157,23 +159,29 @@ async fn ratchet(cfg: ClientConfig, peer: String, initiate: bool) {
                 else{
                     ([0u8;32],[0u8;32],Scalar::zero())
                 };
-            let (K_bob,_,_) = 
+        
+            let  gen_temp = start.elapsed();
+            let (K_bob,_,_) =
                 if i >0{
                  derive_key(A, session_material[i].2, secret_a.clone(), signature_of_knowledge.clone(), sok_recv,  Choice::from(0))
                 }
                 else{
                     ([0u8;32],[0u8;32],Scalar::zero())
                 };
-            let duration = start.elapsed()-starttime; //note this includes network delay
-            computation_time+=duration;
+            duration = start.elapsed()-gen_temp;
+            gen_time += duration;
+
+            duration = start.elapsed()-starttime; //note this includes network delay
+            computation_time += duration;
+
             //println!("[+] Alice finished key exchange in {:?}",duration/2);
             //println!("[+] alice key_{} established:{:?}",i,K_alice);
             //println!("[+] bob key_{} established:{:?}",i,K_bob);
             //println!("[+] Communication overhead per key:{}",comm_size/2);
             size_total+=comm_size;
         }
-        println!("[+] NOTRY key exchcange: {} Bytes communication overhead, {:?} computation overhead for {} session keys",size_total,computation_time,rounds*2-1);
-        println!("[+] Per key: {} bytes, {:?}, ",size_total/(rounds*2-1),computation_time/(rounds*2-1).try_into().unwrap());
+        println!("[+] NOTRY key exchange: {} Bytes communication overhead, {:?} computation overhead for {} session key exchange, {:?} for key generation",size_total,computation_time,rounds*2-1,gen_time);
+        println!("[+] Per key: {} bytes, {:?}(exchange),{:?}(generation)",size_total/(rounds*2-1),computation_time/(rounds*2-1).try_into().unwrap(),gen_time/rounds.try_into().unwrap());
     }
 
     else{  
