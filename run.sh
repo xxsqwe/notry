@@ -30,22 +30,22 @@ echo "1 script avowed"
 echo "avow 10 transcript"
 echo "Generating keys(via key exchange)"
 
-#./target/release/examples/avow 10 >> performance
+./target/release/examples/avow 10 >> performance
 
 echo "10 scripts avowed"
 echo "avow 100 transcript"
 echo "Generating keys(via key exchange)"
 
-#./target/release/examples/avow 100 >> performance
+./target/release/examples/avow 100 >> performance
 
 echo "100 scripts avowed"
 echo "avow 1000 transcript"
 echo "Generating keys(via key exchange)"
 
-#./target/release/examples/avow 1000 >> performance
+./target/release/examples/avow 1000 >> performance
 
 echo "1000 scripts avowed"
 
 echo "plotting results"
-#python3 plot.py
+python3 plot.py
 
