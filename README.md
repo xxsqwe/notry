@@ -58,7 +58,7 @@ libsignal - comparison experiment, the library of the **Signal** Protocol
 > Python3 and the plot library
 
 ```
-sudo apt isntall python3-pip
+sudo apt install python3-pip
 ```
 ```
 pip3 install matplotlib
