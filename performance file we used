@@ -1,5 +1,5 @@
 peer:bob
-[+] NOTRY key exchange: 671488 Bytes communication overhead, 9.092541585s computation overhead for 1999 session key exchange, 44.212454ms for key generation
+[+] NOTRY key exchange: 671488 Bytes communication overhead, 2.4483741585s computation overhead for 1999 session key exchange, 44.212454ms for key generation
 [+] Per key: 335 bytes, 1.224798ms(exchange),44.212µs(generation)
 [+] average sok gen time: 174.396µs, average sok verify time: 230.719µs, average sok size: 256
 [+] Signal protocol: testing key exchange in 1000 rounds
