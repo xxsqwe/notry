@@ -54,7 +54,9 @@ libsignal - comparison experiment, the library of the **Signal** Protocol
 # TO USE
 ## With Docker
 ===============================================================================
-
+```
+git clone --recurse-submodules https://github.com/xxsqwe/notry.git && cd notry
+```
 ```
 docker build -t notry_test .
 ```
