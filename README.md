@@ -63,6 +63,12 @@ docker build -t notry_test .
 ```
 docker run --rm --net=host -it notry_test:latest
 ```
+> After evaluation, export the performance figure.
+```
+containerID=$(docker ps -a | grep notry_test | awk '{print $1;}')
+docker cp $containerID:/notry/performance.png .
+```
+> You can check the generated figure outside the container.
 ## Build from scratch 
 ===============================================================================
 ### Prerequisite
@@ -79,8 +85,8 @@ pip3 install matplotlib
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
-> proceed with default installation
-> switch to a stable version
+> Proceed with default installation
+> Switch to a stable version
 ```
 rustup install nightly-2022-06-22
 ```
@@ -106,16 +112,16 @@ cargo test
 ```
 rm performance
 ```
-> run experiments to reprocude our results 
+> run experiments to reproduce our results 
 ```
 ./run.sh
 ```
 
 ## Interpret results:
 ===============================================================================
-> Figure 7 in our paper is reproduced and saved as performance.png. Note that on different test devices, the generated diagram wont be the same. But the trend is alway hold.
+> Figure 7 in our paper is reproduced and saved as performance.png. Note that the generated diagram won't be the same on different test devices. But the trend is always holding.
 
-> Results of Table 1 is reflected in the first 7 lines of the performance file.
+> Results of Table 1 are reflected in the first 7 lines of the performance file.
 
 ## Customized Evaluation:
 ===============================================================================
