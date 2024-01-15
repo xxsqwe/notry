@@ -52,9 +52,18 @@ libsignal - comparison experiment, the library of the **Signal** Protocol
 
 > Our implementation works on the special Ristretto Group, a ECC group without cofactors
 # TO USE
-## Prerequisite
+## With Docker
 ===============================================================================
 
+```
+docker build -t notry_test .
+```
+```
+docker run --rm --net=host -it notry_test:latest
+```
+## Build from scratch 
+===============================================================================
+### Prerequisite
 > Python3 and the plot library
 
 ```
@@ -76,11 +85,11 @@ rustup install nightly-2022-06-22
 ```
 rustup default nightly-2022-06-22
 ```
-## Clone
+### Clone
 ```
  git clone --recurse-submodules https://github.com/xxsqwe/notry.git
 ```
-## To test:
+### To test:
 ===============================================================================
 
 
