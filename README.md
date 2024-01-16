@@ -14,7 +14,7 @@ Tested on Apple Macbook Intel chip, Thinkpad, and the artifact VM Ubuntu 22.04 m
 Our implementation is written in Rust, supports both single- and
 multiple-message transcript avowal, and follows community best
 practices—though we note our code is NOT YET READY for production
-use. For our implementation, we set the security parameter to provide 256-bit equivalent security. 
+use. We set the security parameter for our implementation to provide 256-bit equivalent security. 
 
 All experiments were performed on an Intel 12th generation core i7-12700K pinned to 3.6GHz with
 32GB RAM.
@@ -85,7 +85,7 @@ pip3 install matplotlib
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
-> Proceed with default installation
+> Proceed with the default installation
 > Switch to a stable version
 ```
 rustup install nightly-2022-06-22
@@ -112,7 +112,7 @@ cargo test
 ```
 rm performance
 ```
-> run experiments to reproduce our results 
+> Run experiments to reproduce our results 
 ```
 ./run.sh
 ```
